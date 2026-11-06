@@ -1,5 +1,6 @@
 package com.healthcare.app.risk;
 
+import com.healthcare.app.auth.VerifiedEmailGuard;
 import com.healthcare.app.common.PageResponse;
 import com.healthcare.app.common.Paging;
 import com.healthcare.app.exception.ApiException;
@@ -30,10 +31,12 @@ public class RiskController {
 
     private final RiskService service;
     private final UserRepository users;
+    private final VerifiedEmailGuard verified;
 
-    public RiskController(RiskService service, UserRepository users) {
+    public RiskController(RiskService service, UserRepository users, VerifiedEmailGuard verified) {
         this.service = service;
         this.users = users;
+        this.verified = verified;
     }
 
     @PostMapping("/diabetes")
@@ -41,6 +44,7 @@ public class RiskController {
             description = "Needs age plus glucose or BMI. 400 if age is under 21 or nothing useful is given; "
                     + "503 if the ML service is down (nothing is saved then).")
     public RiskResponse assess(@Valid @RequestBody RiskRequest req, Authentication auth) {
+        verified.require(auth);
         return service.assess(currentUser(auth), req);
     }
 

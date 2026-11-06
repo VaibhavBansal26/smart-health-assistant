@@ -7,6 +7,10 @@ spring:
       ddl-auto: create-drop
 
 app:
+  base-url: http://app.test
+  admin:
+    email: admin@test.dev
+    password: Admin-Passw0rd-123
   security:
     # test-only key (never used outside tests)
     data-encryption-key: dGVzdC1vbmx5LWtleS1kby1ub3QtdXNlLWluLXByb2Q=

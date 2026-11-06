@@ -6,7 +6,10 @@ import { AuthService } from '../services/auth.service';
 import { ToastService } from '../services/toast.service';
 import { TokenStorage } from '../services/token-storage.service';
 
-const AUTH_URLS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
+const AUTH_URLS = [
+  '/auth/login', '/auth/register', '/auth/refresh', '/auth/logout',
+  '/auth/verify-email', '/auth/forgot-password', '/auth/reset-password',
+];
 
 /**
  * One place for cross-cutting HTTP failures:

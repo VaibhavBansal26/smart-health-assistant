@@ -35,6 +35,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             jwt.validateAndGetSubject(header.substring(7)).ifPresent(email -> {
                 try {
                     UserDetails details = userDetailsService.loadUserByUsername(email);
+                    if (!details.isEnabled()) {
+                        return; // deactivated since the token was issued: treat as unauthenticated
+                    }
                     var auth = new UsernamePasswordAuthenticationToken(details, null, details.getAuthorities());
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);

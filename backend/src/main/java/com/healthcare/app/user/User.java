@@ -26,6 +26,17 @@ public class User {
     /** Only set for doctors. */
     private String specialty;
 
+    /**
+     * Whether the person has proven they control the email address. Accounts created by trusted paths (seed data, the
+     * admin bootstrap) start verified; self-registration sets this to false until the emailed link is used.
+     */
+    @Column(nullable = false)
+    private boolean emailVerified = true;
+
+    /** Deactivated accounts cannot sign in, keep no sessions, and (for doctors) are hidden and cannot be booked. */
+    @Column(nullable = false)
+    private boolean active = true;
+
     protected User() {
     }
 
@@ -43,4 +54,12 @@ public class User {
     public String getPassword() { return password; }
     public Role getRole() { return role; }
     public String getSpecialty() { return specialty; }
+    public boolean isEmailVerified() { return emailVerified; }
+    public boolean isActive() { return active; }
+
+    public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
+    public void setActive(boolean active) { this.active = active; }
+    public void setPassword(String passwordHash) { this.password = passwordHash; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setSpecialty(String specialty) { this.specialty = specialty; }
 }

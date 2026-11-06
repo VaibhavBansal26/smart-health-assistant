@@ -4,6 +4,7 @@ import com.healthcare.app.appointment.AppointmentDtos.AppointmentResponse;
 import com.healthcare.app.appointment.AppointmentDtos.CreateRequest;
 import com.healthcare.app.appointment.AppointmentDtos.SummaryResponse;
 import com.healthcare.app.appointment.AppointmentDtos.UpdateRequest;
+import com.healthcare.app.auth.VerifiedEmailGuard;
 import com.healthcare.app.common.PageResponse;
 import com.healthcare.app.common.Paging;
 import com.healthcare.app.exception.ApiException;
@@ -40,10 +41,12 @@ public class AppointmentController {
 
     private final AppointmentRepository appointments;
     private final UserRepository users;
+    private final VerifiedEmailGuard verified;
 
-    public AppointmentController(AppointmentRepository appointments, UserRepository users) {
+    public AppointmentController(AppointmentRepository appointments, UserRepository users, VerifiedEmailGuard verified) {
         this.appointments = appointments;
         this.users = users;
+        this.verified = verified;
     }
 
     @GetMapping
@@ -95,9 +98,10 @@ public class AppointmentController {
     @Operation(summary = "Book an appointment (patients only)",
             description = "409 if the doctor already has a booking at that time.")
     public AppointmentResponse create(@Valid @RequestBody CreateRequest req, Authentication auth) {
+        verified.require(auth);
         User patient = currentUser(auth);
         User doctor = users.findById(req.doctorId())
-                .filter(u -> u.getRole() == com.healthcare.app.user.Role.DOCTOR)
+                .filter(u -> u.getRole() == com.healthcare.app.user.Role.DOCTOR && u.isActive())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Doctor not found"));
         if (appointments.existsByDoctorIdAndDateTimeAndStatus(
                 doctor.getId(), req.dateTime(), Appointment.Status.BOOKED)) {

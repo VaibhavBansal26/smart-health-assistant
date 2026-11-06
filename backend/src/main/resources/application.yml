@@ -31,6 +31,15 @@ spring:
       enabled: true   # streaming chat holds a request open; virtual threads keep that cheap
   application:
     name: healthcare-api
+  mail:
+    # only used when MAIL_MODE=smtp
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      "[mail.smtp.auth]": ${MAIL_SMTP_AUTH:true}
+      "[mail.smtp.starttls.enable]": ${MAIL_STARTTLS:true}
   datasource:
     # defaults to a local H2 file for development; point DB_URL at PostgreSQL etc. elsewhere
     url: ${DB_URL:jdbc:h2:file:./data/healthcare;AUTO_SERVER=TRUE}
@@ -45,6 +54,17 @@ spring:
       enabled: false
 
 app:
+  # Where the Angular app is served: used to build the links in emails
+  base-url: ${APP_BASE_URL:http://localhost:4200}
+  mail:
+    # log = write emails (links included) to the application log: DEVELOPMENT ONLY. smtp = really send them.
+    mode: ${MAIL_MODE:log}
+    from: ${MAIL_FROM:no-reply@localhost}
+  admin:
+    # Creates the first administrator at startup if no account with this email exists (password: 12+ characters)
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    full-name: ${ADMIN_NAME:Administrator}
   jwt:
     # REQUIRED, no default: the app refuses to start without it (min 32 characters).
     secret: ${JWT_SECRET:}
@@ -60,6 +80,13 @@ app:
     # Optional, only during key rotation: the previous key, so old rows stay readable
     data-encryption-key-previous: ${DATA_ENCRYPTION_KEY_PREVIOUS:}
   auth:
+    # Health features need a verified email. Set false only if you cannot send email.
+    require-verified-email: ${REQUIRE_VERIFIED_EMAIL:true}
+    verify-token-hours: ${VERIFY_TOKEN_HOURS:24}
+    reset-token-minutes: ${RESET_TOKEN_MINUTES:60}
+    invite-token-hours: ${INVITE_TOKEN_HOURS:72}
+    # minimum gap between two emails of the same kind to the same account
+    email-cooldown-seconds: ${EMAIL_COOLDOWN_SECONDS:60}
     refresh-token-days: ${REFRESH_TOKEN_DAYS:14}
     # a refresh token reused within this many seconds is treated as a second browser tab, not theft
     refresh-reuse-grace-seconds: ${REFRESH_REUSE_GRACE_SECONDS:10}

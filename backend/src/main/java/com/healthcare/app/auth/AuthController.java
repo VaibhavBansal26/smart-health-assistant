@@ -40,10 +40,12 @@ public class AuthController {
     private final AuthRateLimiter limiter;
     private final RefreshTokenService refreshTokens;
     private final RefreshCookies cookies;
+    private final AccountService accounts;
 
     public AuthController(UserRepository users, PasswordEncoder encoder, AuthenticationManager authManager,
                           JwtService jwt, AuthRateLimiter limiter, RefreshTokenService refreshTokens,
-                          RefreshCookies cookies) {
+                          RefreshCookies cookies, AccountService accounts) {
+        this.accounts = accounts;
         this.users = users;
         this.encoder = encoder;
         this.authManager = authManager;
@@ -55,26 +57,26 @@ public class AuthController {
 
     @PostMapping("/register")
     @SecurityRequirements // public
-    @Operation(summary = "Create an account (patient or doctor)",
-            description = "Returns a short-lived access token in the body and sets the refresh token as an HttpOnly cookie. "
-                    + "409 if the email is taken.")
+    @Operation(summary = "Create a patient account",
+            description = "Doctors cannot self-register (an administrator creates them). Sends a verification email. Returns a short-lived "
+                    + "access token in the body and sets the refresh token as an HttpOnly cookie. 409 if the email is taken.")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req, HttpServletRequest http) {
         limiter.checkIp(http.getRemoteAddr());
+        // self-registration creates patients only; doctors and admins are created by an administrator
         if (req.role() == Role.ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot self-register as ADMIN");
         }
-        if (req.role() == Role.DOCTOR && (req.specialty() == null || req.specialty().isBlank())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Specialty is required for doctors");
+        if (req.role() == Role.DOCTOR) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Doctor accounts are created by an administrator");
         }
         if (users.existsByEmailIgnoreCase(req.email())) {
             throw new ApiException(HttpStatus.CONFLICT, "An account with this email already exists");
         }
-        User saved = users.save(new User(
-                req.fullName().trim(),
-                req.email().trim().toLowerCase(),
-                encoder.encode(req.password()),
-                req.role(),
-                req.role() == Role.DOCTOR ? req.specialty().trim() : null));
+        User newUser = new User(req.fullName().trim(), req.email().trim().toLowerCase(),
+                encoder.encode(req.password()), Role.PATIENT, null);
+        newUser.setEmailVerified(false); // must click the emailed link before using the health features
+        User saved = users.save(newUser);
+        accounts.sendVerification(saved);
         return session(saved, HttpStatus.CREATED);
     }
 

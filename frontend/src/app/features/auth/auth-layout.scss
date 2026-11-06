@@ -23,3 +23,5 @@
 }
 .demo { text-align: left; background: var(--bg); border-radius: 10px; padding: 10px 12px; }
 .demo button { background: none; border: 0; padding: 0; color: var(--primary); font: inherit; cursor: pointer; text-decoration: underline; }
+.forgot { align-self: flex-end; font-size: 13px; }
+.success { background: var(--ok-soft); color: #166534; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 14px; }

@@ -35,3 +35,6 @@ nav a {
 @media (max-width: 640px) {
   nav { order: 3; width: 100%; }
 }
+
+.verify-banner { background: var(--warn-soft); color: #78350f; border-bottom: 1px solid #fde68a; }
+.verify-banner .inner { max-width: 960px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; font-size: 14px; }

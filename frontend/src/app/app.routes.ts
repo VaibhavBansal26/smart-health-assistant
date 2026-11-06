@@ -18,6 +18,26 @@ export const routes: Routes = [
     title: 'Create account',
   },
   {
+    path: 'forgot-password',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./features/auth/forgot-password.component').then((m) => m.ForgotPasswordComponent),
+    title: 'Forgot password',
+  },
+  {
+    // reachable signed in or out: it is the target of emailed links (password reset, doctor invitation)
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./features/auth/reset-password.component').then((m) => m.ResetPasswordComponent),
+    title: 'Choose a new password',
+  },
+  {
+    path: 'verify-email',
+    loadComponent: () =>
+      import('./features/auth/verify-email.component').then((m) => m.VerifyEmailComponent),
+    title: 'Verify your email',
+  },
+  {
     // Shell = navbar + <router-outlet>. Everything inside requires login.
     path: '',
     canActivate: [authGuard],
@@ -37,6 +57,13 @@ export const routes: Routes = [
             (m) => m.AppointmentListComponent,
           ),
         title: 'Appointments',
+      },
+      {
+        path: 'admin/doctors',
+        canActivate: [roleGuard('ADMIN')],
+        loadComponent: () =>
+          import('./features/admin/admin-doctors.component').then((m) => m.AdminDoctorsComponent),
+        title: 'Manage doctors',
       },
       {
         path: 'chat',

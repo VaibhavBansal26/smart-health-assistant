@@ -1,0 +1,6 @@
+.backdrop {
+  position: fixed; inset: 0; background: rgb(15 23 42 / 45%); display: grid; place-items: center;
+  padding: 16px; z-index: 900; overflow-y: auto;
+}
+.dialog { width: min(460px, 100%); }
+.actions { justify-content: flex-end; margin-top: 4px; }

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, switchMap, tap } from 'rxjs';
 import { API_URL } from '../api.config';
 import { AuthResponse, LoginPayload, RegisterPayload, User } from '../models/models';
 import { AppointmentStore } from './appointment.store';
@@ -40,6 +40,27 @@ export class AuthService {
     return this.http
       .post<AuthResponse>(`${this.api}/auth/register`, payload)
       .pipe(tap((res) => this.startSession(res)), map((res) => res.user));
+  }
+
+  /** Redeems the link from the verification email. If the user is signed in, their profile is refreshed so the banner disappears. */
+  verifyEmail(token: string): Observable<void> {
+    return this.http.post<void>(`${this.api}/auth/verify-email`, { token }).pipe(
+      switchMap(() => (this.isLoggedIn() ? this.refresh() : of(true))),
+      map(() => undefined),
+    );
+  }
+
+  resendVerification(): Observable<void> {
+    return this.http.post<void>(`${this.api}/auth/resend-verification`, {});
+  }
+
+  /** Always succeeds from the user's point of view: the server does not reveal whether the email has an account. */
+  forgotPassword(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.api}/auth/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<void> {
+    return this.http.post<void>(`${this.api}/auth/reset-password`, { token, newPassword });
   }
 
   logout(returnUrl?: string): void {

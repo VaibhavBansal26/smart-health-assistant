@@ -1,0 +1,85 @@
+<div class="page-header">
+  <div>
+    <h1>Doctors</h1>
+    <p class="muted">Create doctor accounts and choose who patients can book.</p>
+  </div>
+  <div class="spacer"></div>
+  <button type="button" class="btn" (click)="openCreate()">Add doctor</button>
+</div>
+
+<div class="toolbar">
+  <input class="input search" type="search" [formControl]="search" placeholder="Search by name, email or specialty"
+         aria-label="Search doctors" />
+  <div class="chips" role="tablist" aria-label="Filter by status">
+    @for (f of filters; track f.value) {
+      <button type="button" role="tab" class="chip" [class.active]="statusFilter() === f.value"
+              [attr.aria-selected]="statusFilter() === f.value" (click)="setFilter(f.value)">{{ f.label }}</button>
+    }
+  </div>
+</div>
+
+@switch (status()) {
+  @case ('error') {
+    <div class="alert error row" role="alert">
+      <span>{{ error() }}</span><span class="spacer"></span>
+      <button type="button" class="btn secondary small" (click)="load(0)">Retry</button>
+    </div>
+  }
+  @case ('loaded') {
+    @for (d of page()!.content; track d.id) {
+      <article class="card item" [class.inactive]="!d.active">
+        <div class="info">
+          <p class="title">{{ d.fullName }} <span class="muted">· {{ d.specialty }}</span></p>
+          <p class="muted">{{ d.email }}</p>
+        </div>
+        <div class="badges">
+          @if (d.active) { <span class="badge ok">Active</span> } @else { <span class="badge off">Deactivated</span> }
+          @if (d.setupPending) { <span class="badge wait" title="Has not chosen a password yet">Invite pending</span> }
+        </div>
+        <div class="actions">
+          @if (d.setupPending && d.active) {
+            <button type="button" class="btn secondary small" [disabled]="busyId() === d.id" (click)="resendInvite(d)">
+              Resend invite
+            </button>
+          }
+          <button type="button" class="btn secondary small" (click)="openEdit(d)">Edit</button>
+          <button type="button" class="btn small" [class.danger]="d.active" [class.secondary]="!d.active"
+                  [disabled]="busyId() === d.id" (click)="toggle(d)">
+            {{ d.active ? 'Deactivate' : 'Reactivate' }}
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <div class="card empty">
+        <h2>No doctors found</h2>
+        <p>Try a different search or filter, or add a doctor.</p>
+      </div>
+    }
+
+    @if (page()!.totalPages > 1) {
+      <nav class="pager" aria-label="Pagination">
+        <button type="button" class="btn secondary small" [disabled]="page()!.page === 0" (click)="load(page()!.page - 1)">Previous</button>
+        <span class="muted">Page {{ page()!.page + 1 }} of {{ page()!.totalPages }} · {{ page()!.totalElements }} doctors</span>
+        <button type="button" class="btn secondary small" [disabled]="!page()!.hasNext" (click)="load(page()!.page + 1)">Next</button>
+      </nav>
+    }
+  }
+  @default {
+    <div class="stack" aria-busy="true" aria-label="Loading doctors">
+      @for (i of [1, 2, 3]; track i) { <div class="card"><div class="skeleton" style="height: 52px"></div></div> }
+    </div>
+  }
+}
+
+@if (dialogOpen()) {
+  <app-doctor-dialog [doctor]="editing()" (saved)="onSaved()" (dismissed)="dialogOpen.set(false)" />
+}
+
+@if (pendingToggle(); as d) {
+  <app-confirm-dialog
+    title="Deactivate this doctor?"
+    [message]="d.fullName + ' will be signed out everywhere, hidden from patients and unable to be booked. Existing appointments are kept. You can reactivate them at any time.'"
+    confirmLabel="Deactivate"
+    (confirmed)="confirmDeactivate()"
+    (dismissed)="pendingToggle.set(null)" />
+}

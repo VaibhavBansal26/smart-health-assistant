@@ -2,6 +2,7 @@ package com.healthcare.app.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.healthcare.app.auth.VerifiedEmailGuard;
 import com.healthcare.app.chat.ChatDtos.ChatRequest;
 import com.healthcare.app.chat.ChatDtos.StatusResponse;
 import com.healthcare.app.chat.ChatLlm.ChatLlmException;
@@ -50,8 +51,11 @@ public class ChatController {
     private final RedFlagDetector redFlags;
     private final ChatRateLimiter limiter;
     private final ObjectMapper json;
+    private final VerifiedEmailGuard verified;
 
-    public ChatController(ChatLlm llm, RedFlagDetector redFlags, ChatRateLimiter limiter, ObjectMapper json) {
+    public ChatController(ChatLlm llm, RedFlagDetector redFlags, ChatRateLimiter limiter, ObjectMapper json,
+                          VerifiedEmailGuard verified) {
+        this.verified = verified;
         this.llm = llm;
         this.redFlags = redFlags;
         this.limiter = limiter;
@@ -74,6 +78,7 @@ public class ChatController {
     public void stream(@Valid @RequestBody ChatRequest req, Authentication auth, HttpServletResponse res)
             throws IOException {
         // Everything that can fail with a normal JSON error happens BEFORE the stream starts.
+        verified.require(auth);
         if (!limiter.tryAcquire(auth.getName())) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                     "You are sending messages too quickly. Please wait a moment.");

@@ -63,6 +63,10 @@ public class RefreshTokenService {
         if (!token.getExpiresAt().isAfter(now)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Your session has expired. Please sign in again.");
         }
+        if (!token.getUser().isActive()) {
+            repo.revokeFamily(token.getFamilyId(), now, RefreshToken.CREDENTIALS_CHANGED);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Your session is no longer valid. Please sign in again.");
+        }
         if (token.getRevokedAt() != null) {
             boolean recentlyRotated = RefreshToken.ROTATED.equals(token.getRevokedReason())
                     && token.getRevokedAt().plus(reuseGrace).isAfter(now);

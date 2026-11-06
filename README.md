@@ -36,6 +36,10 @@ npm install && npm start
 
 If you have several JDKs, point `JAVA_HOME` at a 21 before step 2.
 
+> **Upgrading from an earlier version?** The schema changed (new user columns, refresh and email tokens,
+> slot constraint, encrypted columns). The dev H2 database is not migrated: delete `backend/data/` and restart.
+> Doctors can no longer self-register; set `ADMIN_EMAIL` / `ADMIN_PASSWORD` and create them from the admin screen.
+
 ## Configuration (environment variables)
 
 Nothing deployment-specific or secret lives in the code. The backend reads these from real
@@ -60,6 +64,12 @@ environment variables or from `.env` (see [`.env.example`](.env.example) for the
 | `CHAT_PROVIDER`, `CHAT_MODEL`, `CHAT_EFFORT` | Chat provider, model, speed/quality | `auto`, `claude-opus-5-5`, `low` |
 | `SWAGGER_ENABLED` | Serve interactive API docs | `true` (set `false` in production) |
 | `SEED_DEMO_DATA`, `DEMO_DOCTOR_PASSWORD` | Create demo doctors (development only) | off, none |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` | Creates the first admin on startup if none exists (password 12+ chars). Remove the password from the environment afterwards | none |
+| `MAIL_MODE` | `log` writes emails to the server log (dev); `smtp` sends them | `log` |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_SMTP_AUTH`, `MAIL_STARTTLS` | SMTP settings, used when `MAIL_MODE=smtp` | none |
+| `APP_BASE_URL` | Frontend URL put into email links | `http://localhost:4200` |
+| `REQUIRE_VERIFIED_EMAIL` | Patients must verify their email before booking, chat, risk checks and recommendations | `true` |
+| `VERIFY_TOKEN_HOURS`, `RESET_TOKEN_MINUTES`, `INVITE_TOKEN_HOURS`, `EMAIL_COOLDOWN_SECONDS` | Email link lifetimes and resend throttle | `24`, `60`, `72`, `60` |
 | `SERVER_PORT` | Port | `8080` |
 
 ML service (Python): `MODEL_PATH`, `RISK_MODEL_PATH`, `RISK_META_PATH` (file locations; defaults next to the code).
@@ -82,6 +92,9 @@ The app works without the ML service except "Find a doctor", which shows a
 | **Double-booking** | A unique database constraint on a `slot_key` that is only set while an appointment is BOOKED, so even simultaneous requests cannot book the same slot. Legacy rows are backfilled at startup |
 | **Encryption at rest** | Appointment reasons and risk-check measurements are encrypted with AES-256-GCM (random nonce, tamper-detecting, key-id for rotation). Derived scores and levels stay in the clear so they can be sorted and filtered. This protects against a stolen database or backup, not against a compromised running server. Also encrypt the disk/database itself in production (e.g. managed PostgreSQL) |
 | **HTTPS** | Run behind a TLS-terminating proxy (set `REQUIRE_HTTPS=true`, `FORWARD_HEADERS_STRATEGY=framework`) or serve TLS directly (`SSL_*`, `scripts/dev-cert.sh` makes a local certificate). HSTS is sent over HTTPS |
+| **Email verification** | New patients get a single-use emailed link; booking, chat, risk checks and recommendations stay locked until verified. Tokens are stored only as hashes, typed (a reset link cannot verify an email), and resends are throttled |
+| **Password reset** | Enumeration-safe (same response whether or not the email exists), single-use, 1-hour link; a reset ends every session of that account |
+| **Admin and doctors** | Doctors cannot self-register. An admin (bootstrapped from `ADMIN_*` env vars) creates doctors, who get an invite email to set their own password. Deactivating a doctor blocks login, ends sessions and hides them from booking |
 | **Headers** | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a locked-down `Content-Security-Policy` for the API, `Permissions-Policy`, `Cache-Control: no-store`; CORS allows only configured origins |
 
 **Breaking change for existing databases:** the encrypted columns replace plaintext ones
@@ -206,7 +219,10 @@ so clients can never sort by arbitrary columns.
 
 | Method | Path | Who |
 |---|---|---|
-| POST | `/api/auth/register`, `/api/auth/login` | public |
+| POST | `/api/auth/register` (patients only), `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout` | public (refresh/logout use the HttpOnly cookie) |
+| POST | `/api/auth/verify-email`, `/api/auth/forgot-password`, `/api/auth/reset-password` | public (single-use emailed tokens; forgot-password never reveals whether an email exists) |
+| POST | `/api/auth/resend-verification` | signed-in, unverified user (throttled) |
+| GET / POST / PUT / DELETE | `/api/admin/doctors`, `/api/admin/doctors/{id}`, `POST .../{id}/resend-invite` | admin only. Doctors are created here and receive an invite email to set their password; deactivating one ends their sessions |
 | GET | `/api/auth/me` | any signed-in user |
 | GET | `/api/doctors?specialty=&q=&page=&size=&sort=` | any signed-in user (paged, searchable) |
 | GET | `/api/appointments?status=&from=&to=&page=&size=&sort=` | own bookings (patient) / bookings with me (doctor); paged and filterable |
@@ -223,13 +239,13 @@ so clients can never sort by arbitrary columns.
 
 Errors always look like `{ timestamp, status, message, fieldErrors? }`.
 
-## Automated tests (218)
+## Automated tests (384)
 
 | Suite | Count | Run | What it covers |
 |---|---|---|---|
-| Backend: JUnit 5 + MockMvc + H2 | 142 | `cd backend && mvn test` | Every endpoint through the real security filters and JPA: auth, permissions and data isolation, booking/conflicts/reschedule, paging, filtering, sorting whitelist, summary, risk checks, recommender, streaming chat, rate limit, OpenAPI spec. Plus unit tests for the emergency rules, JWT, paging helper |
+| Backend: JUnit 5 + MockMvc + H2 + GreenMail | 250 | `cd backend && mvn test` | Every endpoint through the real security filters and JPA: auth, permissions and data isolation, booking/conflicts/reschedule, paging, filtering, sorting whitelist, summary, risk checks, recommender, streaming chat, rate limit, sessions and refresh rotation, encryption, email verification, password reset, admin doctor management, OpenAPI spec. Plus unit tests for the emergency rules, JWT, paging helper |
 | ML service: pytest | 32 | `cd ml-service && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/python -m pytest` | Both models: expected predictions, explanation adds up exactly to the score, every factor pushes the right way, quality floors (a bad retrain fails here) |
-| Angular: Karma/Jasmine | 44 | `cd frontend && ng test --watch=false --browsers=ChromeHeadless` (needs Chrome) | Paged appointment store (stale responses, silent refresh, step-back), chat store (streaming, stop, retry, emergencies), guards, validators, error parser |
+| Angular: Karma/Jasmine | 102 | `cd frontend && ng test --watch=false --browsers=ChromeHeadless` (needs Chrome) | Paged appointment store (stale responses, silent refresh, step-back), chat store (streaming, stop, retry, emergencies), guards, validators, error parser |
 
 The backend tests replace only the Python ML service with a mock, so no network, API key or
 running servers are needed. I checked the tests really bite by temporarily breaking the code
