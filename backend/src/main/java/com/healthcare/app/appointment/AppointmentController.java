@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -102,9 +103,14 @@ public class AppointmentController {
                 doctor.getId(), req.dateTime(), Appointment.Status.BOOKED)) {
             throw new ApiException(HttpStatus.CONFLICT, "That time slot is already booked");
         }
-        Appointment saved = appointments.save(
-                new Appointment(patient, doctor, req.dateTime(), req.reason().trim()));
-        return AppointmentResponse.from(saved);
+        try {
+            // flush now so the unique slot constraint is checked inside this request, not at commit time
+            return AppointmentResponse.from(appointments.saveAndFlush(
+                    new Appointment(patient, doctor, req.dateTime(), req.reason().trim())));
+        } catch (DataIntegrityViolationException raced) {
+            // lost a race against another booking for the same slot: the database is the final judge
+            throw slotTaken();
+        }
     }
 
     @PatchMapping("/{id}")
@@ -130,6 +136,11 @@ public class AppointmentController {
         }
         if (req.reason() != null) {
             a.setReason(req.reason().trim());
+        }
+        try {
+            appointments.flush();
+        } catch (DataIntegrityViolationException raced) {
+            throw slotTaken();
         }
         return AppointmentResponse.from(a);
     }
@@ -157,6 +168,10 @@ public class AppointmentController {
         }
         a.setStatus(Appointment.Status.COMPLETED);
         return AppointmentResponse.from(a);
+    }
+
+    private static ApiException slotTaken() {
+        return new ApiException(HttpStatus.CONFLICT, "That time slot is already booked");
     }
 
     private User currentUser(Authentication auth) {

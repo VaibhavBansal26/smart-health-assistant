@@ -7,6 +7,10 @@ spring:
       ddl-auto: create-drop
 
 app:
+  auth:
+    rate-limit:
+      # tests share one client IP and make hundreds of calls; the dedicated IP-limit test lowers this itself
+      ip-max-requests: 100000
   jwt:
     secret: test-only-jwt-secret-not-used-anywhere-else-0123456789
   seed:

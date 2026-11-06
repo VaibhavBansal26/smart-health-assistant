@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, Long>, JpaSpecificationExecutor<Appointment> {
 
@@ -15,6 +16,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
     @Override
     @EntityGraph(attributePaths = {"patient", "doctor"})
     Page<Appointment> findAll(Specification<Appointment> spec, Pageable pageable);
+
+    /** Legacy rows created before slot_key existed. */
+    List<Appointment> findByStatusAndSlotKeyIsNull(Appointment.Status status);
 
     long countByDoctorIdAndStatusAndDateTimeAfter(Long doctorId, Appointment.Status status, LocalDateTime after);
 

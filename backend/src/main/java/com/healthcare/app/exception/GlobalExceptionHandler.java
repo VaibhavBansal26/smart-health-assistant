@@ -24,7 +24,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<Map<String, Object>> api(ApiException e) {
-        return body(e.getStatus(), e.getMessage(), null);
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(e.getStatus());
+        if (e.getRetryAfterSeconds() != null) {
+            response.header("Retry-After", String.valueOf(e.getRetryAfterSeconds()));
+        }
+        return response.body(body(e.getStatus(), e.getMessage(), null).getBody());
     }
 
     @ExceptionHandler(AuthenticationException.class)

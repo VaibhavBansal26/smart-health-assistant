@@ -2,6 +2,9 @@
 # For local development, copy .env.example to .env: it is loaded automatically when you run from backend/ or the repo root.
 server:
   port: ${SERVER_PORT:8080}
+  # Set to "framework" ONLY when running behind a trusted reverse proxy, so client IPs (used by rate limiting) are read
+  # from X-Forwarded-For. Leave as "none" otherwise: the header is spoofable when clients connect directly.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
 
 springdoc:
   # interactive API docs at /swagger-ui.html and the raw spec at /v3/api-docs; set SWAGGER_ENABLED=false in production
@@ -42,6 +45,16 @@ app:
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
+  auth:
+    rate-limit:
+      # failed logins per (account, IP) before that pair is locked
+      max-failed-logins: ${AUTH_MAX_FAILED_LOGINS:5}
+      # failed logins per account across ALL IPs (distributed guessing)
+      max-failed-logins-per-account: ${AUTH_MAX_FAILED_LOGINS_PER_ACCOUNT:20}
+      lockout-minutes: ${AUTH_LOCKOUT_MINUTES:15}
+      # requests per IP to login/register (and later reset endpoints) per window
+      ip-max-requests: ${AUTH_IP_MAX_REQUESTS:60}
+      ip-window-minutes: ${AUTH_IP_WINDOW_MINUTES:15}
   seed:
     # Demo doctors are only created when explicitly enabled; their password must also come from the environment.
     demo-doctors: ${SEED_DEMO_DATA:false}
