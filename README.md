@@ -40,6 +40,8 @@ If you have several JDKs, point `JAVA_HOME` at a 21 before step 2.
 > slot constraint, encrypted columns). The dev H2 database is not migrated: delete `backend/data/` and restart.
 > Doctors can no longer self-register; set `ADMIN_EMAIL` / `ADMIN_PASSWORD` and create them from the admin screen.
 
+See **[DEMO.md](DEMO.md)** for a screenshot tour of every feature (and the script that regenerates it).
+
 ## Configuration (environment variables)
 
 Nothing deployment-specific or secret lives in the code. The backend reads these from real

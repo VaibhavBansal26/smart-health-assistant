@@ -1,0 +1,8 @@
+{
+  "name": "smart-health-demo",
+  "private": true,
+  "type": "module",
+  "description": "Drives the running app through every feature and saves screenshots to docs/demo",
+  "scripts": { "demo": "node record.mjs" },
+  "dependencies": { "puppeteer-core": "24.2.0" }
+}
