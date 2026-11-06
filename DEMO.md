@@ -3,6 +3,16 @@
 Screenshots in [`docs/demo/`](docs/demo) were captured by [`scripts/demo/record.mjs`](scripts/demo/record.mjs),
 which drives the real running app (no mock data in the screenshots). Re-run it any time to refresh them.
 
+## Watch the video
+
+**[docs/demo/demo.mp4](docs/demo/demo.mp4)** (2 min 48 s, captioned): the whole tour below, recorded from the live app.
+Regenerate it with `VIDEO=1` (needs ffmpeg), then compress:
+
+```bash
+VIDEO=1 BACKEND_LOG=/tmp/backend.log ADMIN_PASSWORD=<...> node record.mjs     # from scripts/demo/
+ffmpeg -i docs/demo/demo-raw.mp4 -c:v libx264 -crf 30 -pix_fmt yuv420p -movflags +faststart docs/demo/demo.mp4
+```
+
 ## Run it yourself
 
 ```bash
