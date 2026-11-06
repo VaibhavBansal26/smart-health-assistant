@@ -1,0 +1,182 @@
+<div class="page-header">
+  <div>
+    <h1>Diabetes risk check</h1>
+    <p class="muted">Answer a few questions to see which factors push your estimate up or down.</p>
+  </div>
+</div>
+
+<div class="alert info scope" role="note">
+  <strong>Who this is for:</strong> the model learned from a research dataset of women of Pima heritage aged 21 and over.
+  It can be less accurate for men and for other groups. It is an educational estimate, not a diagnosis.
+</div>
+
+<form class="card stack" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (error(); as message) {
+    <div class="alert error" role="alert">{{ message }}</div>
+  }
+
+  <div class="grid">
+    <div class="field">
+      <label for="age">Age (years)</label>
+      <input id="age" class="input" type="number" inputmode="numeric" formControlName="age" placeholder="e.g. 45"
+             [class.invalid]="form.controls.age.invalid && form.controls.age.touched" />
+      <app-field-error [control]="form.controls.age" />
+    </div>
+
+    <div class="field">
+      <label for="glucose">2-hour glucose (mg/dL) <span class="opt">optional</span></label>
+      <input id="glucose" class="input" type="number" inputmode="decimal" formControlName="glucose" placeholder="e.g. 140"
+             [class.invalid]="form.controls.glucose.invalid && form.controls.glucose.touched" />
+      <app-field-error [control]="form.controls.glucose" />
+      <span class="hint">From an oral glucose tolerance test. A fasting or random reading is <strong>not</strong> the same: leave blank if unsure.</span>
+    </div>
+
+    <div class="field">
+      <label for="bmi">BMI <span class="opt">optional</span></label>
+      <input id="bmi" class="input" type="number" inputmode="decimal" formControlName="bmi" placeholder="e.g. 28.5"
+             [class.invalid]="form.controls.bmi.invalid && form.controls.bmi.touched" />
+      <app-field-error [control]="form.controls.bmi" />
+      <details class="bmi-helper">
+        <summary>Work it out from height and weight</summary>
+        <div class="row">
+          <input class="input small-input" type="number" inputmode="decimal" [formControl]="heightCm" placeholder="Height (cm)" aria-label="Height in centimetres" />
+          <input class="input small-input" type="number" inputmode="decimal" [formControl]="weightKg" placeholder="Weight (kg)" aria-label="Weight in kilograms" />
+          <button type="button" class="btn secondary small" [disabled]="bmiPreview === null" (click)="useBmi()">
+            @if (bmiPreview !== null) { Use {{ bmiPreview }} } @else { Use }
+          </button>
+        </div>
+      </details>
+    </div>
+
+    <div class="field">
+      <label for="pregnancies">Pregnancies <span class="opt">optional</span></label>
+      <input id="pregnancies" class="input" type="number" inputmode="numeric" formControlName="pregnancies" placeholder="0 if none"
+             [class.invalid]="form.controls.pregnancies.invalid && form.controls.pregnancies.touched" />
+      <app-field-error [control]="form.controls.pregnancies" />
+      <span class="hint">Leave blank if unknown or not applicable.</span>
+    </div>
+  </div>
+
+  @if (form.hasError('needOne') && (form.controls.glucose.touched || form.controls.bmi.touched)) {
+    <p class="field-error" role="alert">Enter at least your glucose or your BMI.</p>
+  }
+
+  <div class="row">
+    <button type="submit" class="btn" [disabled]="loading()">
+      @if (loading()) { <app-spinner /> Calculating... } @else { Check my risk }
+    </button>
+    <span class="hint">Your results are saved to your account so you can see changes over time. You can delete them anytime.</span>
+  </div>
+</form>
+
+@if (result(); as res) {
+  <section class="card results stack" aria-live="polite">
+    @for (flag of res.flags; track flag.message) {
+      <div class="alert error" role="alert"><strong>Please note:</strong> {{ flag.message }}</div>
+    }
+
+    <div class="summary">
+      <app-risk-gauge [score]="res.score" [level]="res.level" />
+      <div class="stack">
+        <h2 [class]="'level ' + res.level">{{ levelText[res.level] }}</h2>
+        <p class="muted">
+          A higher score means your values look more like people in the training data who had diabetes. It is not
+          your personal chance of having diabetes.
+        </p>
+        <p>{{ nextStep[res.level] }}</p>
+        @if (res.level !== 'LOW' || res.flags.length) {
+          <div class="row"><button type="button" class="btn" (click)="findDoctor()">Find a doctor</button></div>
+        }
+      </div>
+    </div>
+
+    @if (res.reliabilityNote; as note) {
+      <div class="alert info">{{ note }}</div>
+    }
+
+    <div>
+      <h2>What shaped this result</h2>
+      <p class="hint">Bars show how much each answer moved your score compared with an average person in the data.</p>
+      <ul class="factors">
+        @for (f of res.factors; track f.name) {
+          <li [class.missing]="isMissing(f.name)">
+            <span class="name">{{ f.label }}<small class="muted"> · {{ formatValue(f) }}</small></span>
+            <span class="axis" aria-hidden="true">
+              @if (f.direction === 'RAISES') {
+                <span class="bar up" [style.width.%]="barWidth(f)"></span>
+              } @else if (f.direction === 'LOWERS') {
+                <span class="bar down" [style.width.%]="barWidth(f)"></span>
+              }
+            </span>
+            <span class="effect" [class]="'effect ' + f.direction">
+              @switch (f.direction) {
+                @case ('RAISES') { raises }
+                @case ('LOWERS') { lowers }
+                @default { {{ isMissing(f.name) ? 'unknown' : 'no real effect' }} }
+              }
+            </span>
+          </li>
+        }
+      </ul>
+    </div>
+
+    <p class="hint model-note">
+      Model: {{ res.model.version }}, trained on {{ res.model.trainedOn }}. In its own cross-validated tests it ranks a
+      higher-risk person above a lower-risk one about {{ res.model.cvAuc * 100 | number: '1.0-0' }}% of the time
+      ({{ res.model.cvAucWithoutGlucose * 100 | number: '1.0-0' }}% without glucose).
+    </p>
+    <p class="hint">{{ res.disclaimer }}</p>
+  </section>
+}
+
+<section class="history">
+  <div class="row">
+    <h2>Your previous checks</h2>
+    <span class="spacer"></span>
+    @if (history().length) {
+      <button type="button" class="btn ghost small" (click)="confirmClear.set(true)">Delete all</button>
+    }
+  </div>
+
+  @switch (historyState()) {
+    @case ('loading') { <div class="card"><div class="skeleton" style="height: 40px"></div></div> }
+    @case ('error') {
+      <div class="alert error row" role="alert">
+        <span>Could not load your history.</span><span class="spacer"></span>
+        <button type="button" class="btn secondary small" (click)="loadHistory()">Retry</button>
+      </div>
+    }
+    @case ('loaded') {
+      @for (h of history(); track h.id) {
+        <article class="card hist">
+          <span class="when">{{ h.createdAt | date: 'MMM d, y · h:mm a' }}</span>
+          <span class="muted inputs">
+            Age {{ h.age }}@if (h.glucose !== null) {, glucose {{ h.glucose }}}@if (h.bmi !== null) {, BMI {{ h.bmi }}}
+          </span>
+          <span class="spacer"></span>
+          <span [class]="'badge ' + h.level">{{ levelText[h.level] }} · {{ h.score }}</span>
+          <button type="button" class="btn ghost small" (click)="remove(h)" [attr.aria-label]="'Delete check from ' + (h.createdAt | date: 'MMM d')">Delete</button>
+        </article>
+      } @empty {
+        <p class="muted">No saved checks yet.</p>
+      }
+      @if (historyHasNext()) {
+        <div class="row more">
+          <button type="button" class="btn secondary small" [disabled]="loadingMore()" (click)="loadMore()">
+            @if (loadingMore()) { <app-spinner /> Loading... } @else { Load more }
+          </button>
+          <span class="hint">Showing {{ history().length }} of {{ historyTotal() }}</span>
+        </div>
+      }
+    }
+  }
+</section>
+
+@if (confirmClear()) {
+  <app-confirm-dialog
+    title="Delete all saved checks?"
+    message="This permanently removes your risk check history from your account."
+    confirmLabel="Delete all"
+    (confirmed)="clearAll()"
+    (dismissed)="confirmClear.set(false)" />
+}

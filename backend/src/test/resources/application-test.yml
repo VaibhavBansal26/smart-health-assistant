@@ -1,0 +1,19 @@
+# Used by every @SpringBootTest (via @ActiveProfiles("test")).
+spring:
+  datasource:
+    url: jdbc:h2:mem:healthtest;DB_CLOSE_DELAY=-1
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+app:
+  jwt:
+    secret: test-only-jwt-secret-not-used-anywhere-else-0123456789
+  seed:
+    demo-doctors: true
+    demo-doctor-password: Doctor@123
+  chat:
+    provider: mock          # never calls the real Claude API from tests
+    rate-limit-per-minute: 5
+  ml:
+    url: http://localhost:1 # unused: MlClient is replaced by a Mockito mock in ApiTest

@@ -1,0 +1,38 @@
+<div class="backdrop" (click)="dismissed.emit()">
+  <form class="dialog card stack" role="dialog" aria-modal="true" aria-labelledby="resched-title"
+        [formGroup]="form" (ngSubmit)="submit()" (click)="$event.stopPropagation()"
+        (keydown.escape)="dismissed.emit()" novalidate>
+    <div>
+      <h2 id="resched-title">Reschedule appointment</h2>
+      <p class="muted">
+        {{ appointment().doctorName }} · {{ appointment().specialty }}<br />
+        Currently {{ appointment().dateTime | date: 'EEE, MMM d · h:mm a' }}
+      </p>
+    </div>
+
+    @if (error(); as message) {
+      <div class="alert error" role="alert">{{ message }}</div>
+    }
+
+    <div class="field">
+      <label for="rs-dateTime">New date and time</label>
+      <input id="rs-dateTime" class="input" type="datetime-local" formControlName="dateTime" [min]="minDateTime" appAutofocus
+             [class.invalid]="form.controls.dateTime.invalid && form.controls.dateTime.touched" />
+      <app-field-error [control]="form.controls.dateTime" />
+    </div>
+
+    <div class="field">
+      <label for="rs-reason">Reason for visit</label>
+      <textarea id="rs-reason" class="input" formControlName="reason" maxlength="500"
+                [class.invalid]="form.controls.reason.invalid && form.controls.reason.touched"></textarea>
+      <app-field-error [control]="form.controls.reason" />
+    </div>
+
+    <div class="row actions">
+      <button type="button" class="btn secondary" (click)="dismissed.emit()">Close</button>
+      <button type="submit" class="btn" [disabled]="submitting() || !hasChanges">
+        @if (submitting()) { <app-spinner /> Saving... } @else { Save changes }
+      </button>
+    </div>
+  </form>
+</div>

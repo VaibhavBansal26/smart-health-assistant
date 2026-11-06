@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+model.joblib
+risk_model.joblib
+risk_meta.json
+# downloaded by fetch_data.py (see data/README.md)
+data/pima.csv
+data/_openml_cache/

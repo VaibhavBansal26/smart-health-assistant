@@ -1,0 +1,102 @@
+<div class="page-header">
+  <div>
+    <h1>Find the right doctor</h1>
+    <p class="muted">Describe how you feel in your own words and we will suggest a specialist.</p>
+  </div>
+</div>
+
+<form class="card stack" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <div class="field">
+    <label for="symptoms">What are you experiencing?</label>
+    <textarea id="symptoms" class="input" formControlName="symptoms" maxlength="1000" rows="4"
+              placeholder="e.g. I've had a dry cough for two weeks and get wheezy at night"
+              [class.invalid]="form.controls.symptoms.invalid && form.controls.symptoms.touched"></textarea>
+    <div class="row">
+      <app-field-error [control]="form.controls.symptoms" />
+      <span class="spacer"></span>
+      <span class="hint">{{ form.controls.symptoms.value.length }}/1000</span>
+    </div>
+  </div>
+
+  <div class="row examples">
+    <span class="hint">Try an example:</span>
+    @for (e of examples; track e) {
+      <button type="button" class="chip" (click)="useExample(e)">{{ e }}</button>
+    }
+  </div>
+
+  <div class="row">
+    <button type="submit" class="btn" [disabled]="loading()">
+      @if (loading()) { <app-spinner /> Analysing... } @else { Find doctors }
+    </button>
+    <span class="hint">If this is an emergency, call your local emergency number now.</span>
+  </div>
+</form>
+
+<div class="results" aria-live="polite">
+  @if (error(); as message) {
+    <div class="alert error row" role="alert">
+      <span>{{ message }}</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn secondary small" (click)="submit()">Try again</button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="card stack" aria-busy="true" aria-label="Analysing your symptoms">
+      <div class="skeleton" style="height: 22px; width: 40%"></div>
+      <div class="skeleton" style="height: 74px"></div>
+      <div class="skeleton" style="height: 74px"></div>
+    </div>
+  }
+
+  @if (result(); as res) {
+    @if (res.emergency) {
+      <section class="emergency" role="alert">
+        <h2>This may be an emergency</h2>
+        <p>{{ res.emergencyMessage }}</p>
+        <p class="small">We have not suggested a doctor because this needs urgent attention first.</p>
+      </section>
+    } @else {
+      @if (res.note) {
+        <div class="alert info">{{ res.note }}</div>
+      } @else if (res.lowConfidence) {
+        <div class="alert info">
+          We are not sure which specialist fits best. Adding more detail (how long, where, how severe) helps.
+        </div>
+      }
+
+      <section class="card stack">
+        <h2>What your description looks like</h2>
+        <ul class="bars">
+          @for (s of res.specialties; track s.specialty) {
+            <li>
+              <span class="name">{{ s.specialty }}</span>
+              <span class="track" aria-hidden="true"><span class="fill" [style.width.%]="s.confidence * 100"></span></span>
+              <span class="pct">{{ s.confidence * 100 | number: '1.0-0' }}%</span>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="stack">
+        <h2>Suggested doctors</h2>
+        @for (d of res.doctors; track d.id) {
+          <article class="card doctor">
+            <span class="avatar" aria-hidden="true">{{ d.fullName | initials }}</span>
+            <div class="info">
+              <p class="title">{{ d.fullName }} <span class="muted">· {{ d.specialty }}</span></p>
+              <p class="muted">{{ d.reason }}</p>
+              <p class="hint">{{ workload(d) }}</p>
+            </div>
+            <button type="button" class="btn small" (click)="book(d)">Book</button>
+          </article>
+        } @empty {
+          <div class="card empty"><p>No doctors are available for this yet.</p></div>
+        }
+      </section>
+    }
+
+    <p class="disclaimer hint">{{ res.disclaimer }}</p>
+  }
+</div>

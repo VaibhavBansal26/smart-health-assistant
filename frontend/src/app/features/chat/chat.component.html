@@ -1,0 +1,89 @@
+<section class="chat card">
+  <header class="head">
+    <div>
+      <h1>Chat with Aria</h1>
+      <p class="muted">An AI health assistant. Not a doctor.</p>
+    </div>
+    <span class="spacer"></span>
+    @if (store.status(); as s) {
+      <span class="pill" [class.demo]="s.provider === 'demo'"
+            [title]="s.provider === 'demo' ? 'Scripted replies' : 'Model: ' + s.model">
+        {{ s.provider === 'demo' ? 'Demo mode' : 'AI' }}
+      </span>
+    }
+    @if (store.hasUserMessages()) {
+      <button type="button" class="btn ghost small" (click)="findDoctor()">Find a doctor from this chat</button>
+      <button type="button" class="btn secondary small" [disabled]="store.sending()" (click)="store.reset()">
+        New chat
+      </button>
+    }
+  </header>
+
+  @if (store.status()?.provider === 'demo') {
+    <div class="alert info demo-note">
+      Demo mode: no AI key is set on the server, so replies are scripted. Set <code>ANTHROPIC_API_KEY</code> and restart the backend for real answers.
+    </div>
+  }
+
+  <div class="scroller" #scroller role="log" aria-live="polite" aria-label="Conversation" (scroll)="onScroll()">
+    @if (store.messages().length === 0) {
+      <div class="welcome">
+        <h2>How are you feeling today?</h2>
+        <p class="muted">Describe your symptoms or ask a health question. I will ask a few questions and suggest next steps.</p>
+        <div class="starters">
+          @for (s of starters; track s) {
+            <button type="button" class="chip" (click)="send(s)">{{ s }}</button>
+          }
+        </div>
+      </div>
+    }
+
+    @for (m of store.messages(); track m.id) {
+      @switch (m.role) {
+        @case ('emergency') {
+          <div class="emergency" role="alert">
+            <strong>This may be an emergency</strong>
+            <p>{{ m.text }}</p>
+          </div>
+        }
+        @case ('notice') {
+          <p class="notice muted">{{ m.text }}</p>
+        }
+        @default {
+          <div class="row-msg" [class.mine]="m.role === 'user'">
+            <div class="bubble" [class]="'bubble ' + m.role">
+              @if (m.text) {
+                {{ m.text }}
+              } @else {
+                <span class="typing" aria-label="Aria is typing"><i></i><i></i><i></i></span>
+              }
+            </div>
+          </div>
+        }
+      }
+    }
+
+    @if (store.error(); as message) {
+      <div class="alert error row" role="alert">
+        <span>{{ message }}</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn secondary small" (click)="store.retry()">Try again</button>
+      </div>
+    }
+  </div>
+
+  <form class="composer" (ngSubmit)="send()">
+    <textarea class="input" rows="2" maxlength="2000" [formControl]="input" (keydown)="onKeydown($event)"
+              placeholder="Describe how you feel…  (Enter to send, Shift+Enter for a new line)"
+              aria-label="Your message"></textarea>
+    @if (store.sending()) {
+      <button type="button" class="btn secondary" (click)="store.stop()">Stop</button>
+    } @else {
+      <button type="submit" class="btn" [disabled]="!input.value.trim()">Send</button>
+    }
+  </form>
+
+  <p class="foot hint">
+    Aria can make mistakes and does not give diagnoses. In an emergency, call your local emergency number.
+  </p>
+</section>

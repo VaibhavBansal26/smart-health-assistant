@@ -1,0 +1,10 @@
+.tiles {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px;
+}
+.tile { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px; }
+.tile .value { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+.tile.info .value { color: var(--info); }
+.tile.ok .value { color: var(--ok); }
+.tile.danger .value { color: var(--danger); }
+.next h2 { margin-bottom: 12px; }
+.when { font-weight: 700; font-size: 1.05rem; }

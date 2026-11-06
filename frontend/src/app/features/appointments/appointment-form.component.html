@@ -1,0 +1,85 @@
+<div class="page-header">
+  <div>
+    <h1>Book an appointment</h1>
+    <p class="muted">Choose a doctor, pick a time, and tell us what it is about.</p>
+  </div>
+</div>
+
+<form class="stack" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (error(); as message) {
+    <div class="alert error" role="alert">{{ message }}</div>
+  }
+
+  <section class="card stack">
+    <h2>1. Choose a doctor</h2>
+
+    @switch (doctorsState()) {
+      @case ('loading') {
+        <div class="doctors" aria-busy="true">
+          @for (i of [1, 2, 3, 4]; track i) { <div class="skeleton" style="height: 74px"></div> }
+        </div>
+      }
+      @case ('error') {
+        <div class="alert error row" role="alert">
+          <span>Could not load doctors.</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn secondary small" (click)="loadDoctors()">Retry</button>
+        </div>
+      }
+      @case ('loaded') {
+        <input class="input" type="search" [formControl]="search" placeholder="Search by name or specialty"
+               aria-label="Search doctors" />
+
+        <div class="doctors" role="radiogroup" aria-label="Doctors">
+          @for (d of visibleDoctors(); track d.id) {
+            <button type="button" class="doctor" role="radio"
+                    [class.selected]="form.controls.doctorId.value === d.id"
+                    [attr.aria-checked]="form.controls.doctorId.value === d.id"
+                    (click)="selectDoctor(d)">
+              <span class="avatar" aria-hidden="true">{{ d.fullName | initials }}</span>
+              <span>
+                <strong>{{ d.fullName }}</strong><br />
+                <small class="muted">{{ d.specialty }}</small>
+              </span>
+            </button>
+          } @empty {
+            <p class="muted">No doctors match "{{ search.value }}".</p>
+          }
+        </div>
+        @if (form.controls.doctorId.touched && form.controls.doctorId.invalid) {
+          <p class="field-error" role="alert">Please choose a doctor.</p>
+        }
+      }
+    }
+  </section>
+
+  <section class="card stack">
+    <h2>2. Details</h2>
+
+    <div class="field">
+      <label for="dateTime">Date and time</label>
+      <input id="dateTime" class="input" type="datetime-local" formControlName="dateTime" [min]="minDateTime"
+             [class.invalid]="form.controls.dateTime.invalid && form.controls.dateTime.touched" />
+      <app-field-error [control]="form.controls.dateTime" />
+    </div>
+
+    <div class="field">
+      <label for="reason">Reason for visit</label>
+      <textarea id="reason" class="input" formControlName="reason" maxlength="500"
+                placeholder="Briefly describe your symptoms or the purpose of the visit"
+                [class.invalid]="form.controls.reason.invalid && form.controls.reason.touched"></textarea>
+      <div class="row">
+        <app-field-error [control]="form.controls.reason" />
+        <span class="spacer"></span>
+        <span class="hint">{{ form.controls.reason.value.length }}/500</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="row">
+    <button type="submit" class="btn" [disabled]="submitting() || doctorsState() !== 'loaded'">
+      @if (submitting()) { <app-spinner /> Booking... } @else { Confirm booking }
+    </button>
+    <a class="btn secondary" routerLink="/appointments">Cancel</a>
+  </div>
+</form>

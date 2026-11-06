@@ -1,0 +1,19 @@
+:host { display: block; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+  font: inherit; font-weight: 600; color: var(--muted); cursor: pointer;
+  &:hover { color: var(--text); }
+  &.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+}
+.item { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; padding: 14px 18px; flex-wrap: wrap; }
+.date {
+  display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px 0;
+  border-radius: 10px; background: var(--primary-soft); color: var(--primary-dark);
+}
+.day { font-size: 1.4rem; font-weight: 800; line-height: 1; }
+.mon { font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.info { flex: 1; min-width: 180px; }
+.title { font-weight: 700; }
+.actions { display: flex; gap: 8px; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; flex-wrap: wrap; }

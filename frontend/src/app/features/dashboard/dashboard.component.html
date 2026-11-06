@@ -1,0 +1,67 @@
+<div class="page-header">
+  <div>
+    <h1>Hello, {{ firstName() }}</h1>
+    <p class="muted">
+      @if (auth.role() === 'DOCTOR') { Here is your schedule at a glance. }
+      @else { Here is a summary of your care. }
+    </p>
+  </div>
+  <div class="spacer"></div>
+  @if (auth.role() === 'PATIENT') {
+    <a class="btn secondary" routerLink="/chat">Chat with Aria</a>
+    <a class="btn secondary" routerLink="/risk">Risk check</a>
+    <a class="btn secondary" routerLink="/recommend">Find a doctor</a>
+    <a class="btn" routerLink="/appointments/new">Book appointment</a>
+  }
+</div>
+
+@switch (store.summaryStatus()) {
+  @case ('error') {
+    <div class="alert error row" role="alert">
+      <span>{{ store.summaryError() }}</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn secondary small" (click)="retry()">Retry</button>
+    </div>
+  }
+  @case ('loaded') {
+    <section class="tiles" aria-label="Appointment summary">
+      @for (t of tiles(); track t.label) {
+        <div class="card tile" [class]="'card tile ' + t.tone">
+          <span class="value">{{ t.value }}</span>
+          <span class="muted">{{ t.label }}</span>
+        </div>
+      }
+    </section>
+
+    <section class="card next">
+      <h2>Next appointment</h2>
+      @if (store.next(); as a) {
+        <div class="row">
+          <div>
+            <p class="when">{{ a.dateTime | date: 'EEEE, d MMMM y' }} · {{ a.dateTime | date: 'shortTime' }}</p>
+            <p>
+              @if (auth.role() === 'DOCTOR') { With <strong>{{ a.patientName }}</strong> }
+              @else { <strong>{{ a.doctorName }}</strong> · {{ a.specialty }} }
+            </p>
+            <p class="muted">{{ a.reason }}</p>
+          </div>
+          <span class="spacer"></span>
+          <app-status-badge [status]="a.status" />
+        </div>
+      } @else {
+        <p class="muted">Nothing scheduled.
+          @if (auth.role() === 'PATIENT') { <a routerLink="/appointments/new">Book one now</a>. }
+        </p>
+      }
+    </section>
+  }
+  @default {
+    <!-- 'idle' | 'loading': skeleton placeholders avoid layout jumping -->
+    <section class="tiles" aria-busy="true" aria-label="Loading summary">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <div class="card tile"><div class="skeleton" style="height: 38px"></div></div>
+      }
+    </section>
+    <div class="card"><div class="skeleton" style="height: 80px"></div></div>
+  }
+}

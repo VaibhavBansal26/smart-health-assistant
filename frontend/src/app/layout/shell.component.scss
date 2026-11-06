@@ -1,0 +1,37 @@
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.inner {
+  max-width: 960px; margin: 0 auto; padding: 10px 16px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.brand {
+  display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.1rem;
+  color: var(--text); text-decoration: none;
+}
+.logo {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+  background: var(--primary); color: #fff; font-weight: 800;
+}
+nav { display: flex; gap: 2px; }
+nav a {
+  padding: 6px 10px; white-space: nowrap; border-radius: 8px; text-decoration: none; color: var(--muted); font-weight: 600;
+  &:hover { background: var(--bg); color: var(--text); }
+  &.active { background: var(--primary-soft); color: var(--primary-dark); }
+}
+.me { display: flex; align-items: center; gap: 10px; }
+.avatar {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; font-size: 13px;
+}
+.who { display: flex; flex-direction: column; line-height: 1.2; }
+
+/* six links + name leave no room on mid-size screens: keep the avatar, drop the name */
+@media (max-width: 1100px) {
+  .who { display: none; }
+  .inner { max-width: 100%; }
+}
+@media (max-width: 640px) {
+  nav { order: 3; width: 100%; }
+}

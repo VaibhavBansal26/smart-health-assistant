@@ -1,0 +1,41 @@
+.scope { margin-bottom: 16px; font-size: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 20px; }
+.opt { font-weight: 400; color: var(--muted); font-size: 12px; }
+.bmi-helper { font-size: 13px; summary { cursor: pointer; color: var(--primary); } .row { margin-top: 8px; } }
+.small-input { width: 120px; padding: 6px 10px; }
+
+.results { margin-top: 20px; }
+.summary { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+.summary > .stack { flex: 1; min-width: 240px; gap: 8px; }
+.level { font-size: 1.4rem; }
+.level.LOW { color: var(--ok); }
+.level.MODERATE { color: var(--warn); }
+.level.HIGH { color: var(--danger); }
+
+.factors { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.factors li { display: grid; grid-template-columns: minmax(150px, 1.2fr) 2fr 90px; gap: 12px; align-items: center; }
+.factors li.missing .name { color: var(--muted); }
+.name small { display: block; }
+.axis { position: relative; height: 12px; background: var(--bg); border-radius: 999px; }
+.axis::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--border); }
+.bar { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+.bar.up { left: 50%; background: #dc2626; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.bar.down { right: 50%; background: #16a34a; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.effect { font-size: 13px; font-weight: 600; color: var(--muted); }
+.effect.RAISES { color: var(--danger); }
+.effect.LOWERS { color: var(--ok); }
+.model-note { border-top: 1px solid var(--border); padding-top: 12px; }
+
+.history { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; }
+.hist { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
+.when { font-weight: 600; }
+.inputs { font-size: 13px; }
+.badge.LOW { background: var(--ok-soft); color: var(--ok); }
+.badge.MODERATE { background: var(--warn-soft); color: var(--warn); }
+.badge.HIGH { background: var(--danger-soft); color: #991b1b; }
+
+@media (max-width: 600px) {
+  .factors li { grid-template-columns: 1fr 70px; }
+  .factors .axis { grid-column: 1 / -1; order: 3; }
+}
+.more { justify-content: center; gap: 12px; margin-top: 4px; }

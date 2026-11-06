@@ -1,0 +1,25 @@
+// Shared by login + register
+:host {
+  display: grid; place-items: center; min-height: 100vh; padding: 24px 16px;
+  background: linear-gradient(160deg, #ecfdf5 0%, var(--bg) 55%);
+}
+.auth-card { width: min(440px, 100%); display: flex; flex-direction: column; gap: 20px; padding: 28px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.2rem; }
+.logo {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
+  background: var(--primary); color: #fff; font-weight: 800;
+}
+.switch { text-align: center; }
+.role-option {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px; font-weight: 600;
+  &:has(input:checked) { border-color: var(--primary); background: #f0fdfa; }
+}
+.password-wrap { position: relative; }
+.password-wrap .input { padding-right: 64px; }
+.toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: 0; color: var(--primary); font-weight: 600; cursor: pointer; padding: 6px;
+}
+.demo { text-align: left; background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+.demo button { background: none; border: 0; padding: 0; color: var(--primary); font: inherit; cursor: pointer; text-decoration: underline; }

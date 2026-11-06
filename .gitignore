@@ -1,0 +1,10 @@
+# Secrets and local config: never commit
+.env
+.env.*
+!.env.example
+
+# Tooling / OS / editors
+.claude/
+.DS_Store
+.idea/
+*.log

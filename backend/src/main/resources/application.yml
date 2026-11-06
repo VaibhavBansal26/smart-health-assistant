@@ -1,0 +1,62 @@
+# All deployment-specific values and secrets come from environment variables (see .env.example at the repo root).
+# For local development, copy .env.example to .env: it is loaded automatically when you run from backend/ or the repo root.
+server:
+  port: ${SERVER_PORT:8080}
+
+springdoc:
+  # interactive API docs at /swagger-ui.html and the raw spec at /v3/api-docs; set SWAGGER_ENABLED=false in production
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+spring:
+  config:
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:../.env[.properties]
+  threads:
+    virtual:
+      enabled: true   # streaming chat holds a request open; virtual threads keep that cheap
+  application:
+    name: healthcare-api
+  datasource:
+    # defaults to a local H2 file for development; point DB_URL at PostgreSQL etc. elsewhere
+    url: ${DB_URL:jdbc:h2:file:./data/healthcare;AUTO_SERVER=TRUE}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: false
+
+app:
+  jwt:
+    # REQUIRED, no default: the app refuses to start without it (min 32 characters).
+    secret: ${JWT_SECRET:}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
+  seed:
+    # Demo doctors are only created when explicitly enabled; their password must also come from the environment.
+    demo-doctors: ${SEED_DEMO_DATA:false}
+    demo-doctor-password: ${DEMO_DOCTOR_PASSWORD:}
+  ml:
+    # Python FastAPI service that classifies symptoms into a specialty
+    url: ${ML_SERVICE_URL:http://localhost:8000}
+    timeout-ms: 5000
+  chat:
+    # auto = Claude when ANTHROPIC_API_KEY (or ANTHROPIC_AUTH_TOKEN) is set, otherwise scripted demo mode
+    provider: ${CHAT_PROVIDER:auto}
+    model: ${CHAT_MODEL:claude-opus-5-5}
+    # low keeps replies fast; set empty (CHAT_EFFORT=) for models without effort support
+    effort: ${CHAT_EFFORT:low}
+    max-tokens: 8000
+    rate-limit-per-minute: 20
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    anthropic-auth-token: ${ANTHROPIC_AUTH_TOKEN:}

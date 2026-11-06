@@ -1,0 +1,118 @@
+<div class="page-header">
+  <div>
+    <h1>Appointments</h1>
+    <p class="muted">
+      @if (auth.role() === 'DOCTOR') { Patients booked with you. } @else { Your bookings. }
+    </p>
+  </div>
+  <div class="spacer"></div>
+  @if (auth.role() === 'PATIENT') {
+    <a class="btn" routerLink="/appointments/new">Book appointment</a>
+  }
+</div>
+
+<div class="chips" role="tablist" aria-label="Filter by status">
+  @for (f of filters; track f.value) {
+    <button type="button" role="tab" class="chip" [class.active]="store.filter() === f.value"
+            [attr.aria-selected]="store.filter() === f.value" (click)="store.setFilter(f.value)">
+      {{ f.label }}
+    </button>
+  }
+</div>
+
+@switch (store.status()) {
+  @case ('error') {
+    <div class="alert error row" role="alert">
+      <span>{{ store.error() }}</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn secondary small" (click)="retry()">Retry</button>
+    </div>
+  }
+  @case ('loaded') {
+    @for (a of store.items(); track a.id) {
+      <article class="card item">
+        <div class="date">
+          <span class="day">{{ a.dateTime | date: 'd' }}</span>
+          <span class="mon">{{ a.dateTime | date: 'MMM' }}</span>
+        </div>
+
+        <div class="info">
+          <p class="title">
+            @if (auth.role() === 'DOCTOR') { {{ a.patientName }} }
+            @else { {{ a.doctorName }} <span class="muted">· {{ a.specialty }}</span> }
+          </p>
+          <p class="muted">{{ a.dateTime | date: 'EEE, h:mm a' }} · {{ a.reason }}</p>
+        </div>
+
+        <app-status-badge [status]="a.status" />
+
+        @if (a.status === 'BOOKED') {
+          <div class="actions">
+            @if (auth.role() === 'DOCTOR') {
+              <button type="button" class="btn small" [disabled]="store.isBusy(a.id)" (click)="complete(a)">
+                Complete
+              </button>
+            }
+            @if (auth.role() === 'PATIENT') {
+              <button type="button" class="btn secondary small" [disabled]="store.isBusy(a.id)"
+                      (click)="rescheduling.set(a)">
+                Reschedule
+              </button>
+            }
+            <button type="button" class="btn secondary small" [disabled]="store.isBusy(a.id)"
+                    (click)="pendingCancel.set(a)">
+              Cancel
+            </button>
+          </div>
+        }
+      </article>
+    } @empty {
+      <div class="card empty">
+        <h2>{{ store.filter() === 'ALL' ? 'No appointments yet' : 'Nothing in this view' }}</h2>
+        <p>
+          @if (store.filter() !== 'ALL') {
+            <button type="button" class="btn ghost small" (click)="store.setFilter('ALL')">Show all</button>
+          } @else if (auth.role() === 'PATIENT') {
+            <a routerLink="/appointments/new">Book your first appointment</a>
+          } @else {
+            Bookings from patients will appear here.
+          }
+        </p>
+      </div>
+    }
+
+    @if (store.pageInfo().totalPages > 1) {
+      <nav class="pager" aria-label="Pagination">
+        <button type="button" class="btn secondary small" [disabled]="store.pageInfo().page === 0"
+                (click)="store.loadPage(store.pageInfo().page - 1)">Previous</button>
+        <span class="muted">
+          Page {{ store.pageInfo().page + 1 }} of {{ store.pageInfo().totalPages }}
+          · {{ store.pageInfo().totalElements }} appointments
+        </span>
+        <button type="button" class="btn secondary small"
+                [disabled]="store.pageInfo().page + 1 >= store.pageInfo().totalPages"
+                (click)="store.loadPage(store.pageInfo().page + 1)">Next</button>
+      </nav>
+    }
+  }
+  @default {
+    <div class="stack" aria-busy="true" aria-label="Loading appointments">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="card"><div class="skeleton" style="height: 52px"></div></div>
+      }
+    </div>
+  }
+}
+
+@if (pendingCancel(); as appt) {
+  <app-confirm-dialog
+    title="Cancel this appointment?"
+    [message]="'Your visit on ' + (appt.dateTime | date: 'MMM d, h:mm a') + ' will be cancelled.'"
+    confirmLabel="Yes, cancel it"
+    (confirmed)="confirmCancel()"
+    (dismissed)="pendingCancel.set(null)" />
+}
+
+@if (rescheduling(); as appt) {
+  <app-reschedule-dialog [appointment]="appt" (saved)="rescheduling.set(null)" (dismissed)="rescheduling.set(null)" />
+}

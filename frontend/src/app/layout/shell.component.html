@@ -1,0 +1,37 @@
+<header class="topbar">
+  <div class="inner">
+    <a class="brand" routerLink="/dashboard">
+      <span class="logo" aria-hidden="true">+</span> HealthCare
+    </a>
+
+    <nav aria-label="Main">
+      <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+      <a routerLink="/appointments" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        Appointments
+      </a>
+      @if (auth.role() === 'PATIENT') {
+        <a routerLink="/chat" routerLinkActive="active">AI chat</a>
+        <a routerLink="/recommend" routerLinkActive="active">Find a doctor</a>
+        <a routerLink="/risk" routerLinkActive="active">Risk check</a>
+        <a routerLink="/appointments/new" routerLinkActive="active">Book</a>
+      }
+    </nav>
+
+    <div class="spacer"></div>
+
+    @if (auth.user(); as user) {
+      <div class="me">
+        <span class="avatar" aria-hidden="true">{{ user.fullName | initials }}</span>
+        <span class="who">
+          <strong>{{ user.fullName }}</strong>
+          <small class="muted">{{ user.role | titlecase }}</small>
+        </span>
+      </div>
+    }
+    <button type="button" class="btn secondary small" (click)="auth.logout()">Sign out</button>
+  </div>
+</header>
+
+<main class="page">
+  <router-outlet />
+</main>
