@@ -14,3 +14,4 @@
 *.p12
 *.jks
 scripts/demo/node_modules/
+.audio/

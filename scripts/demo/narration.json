@@ -1,0 +1,17 @@
+[
+  { "id": "intro", "caption": "Smart Health Assistant", "text": "Welcome to Smart Health Assistant, a full-stack healthcare app with an AI chat, machine learning recommendations, and real doctor workflows. Let me walk you through it." },
+  { "id": "admin", "caption": "Admin invites a new doctor by email", "text": "First, an administrator signs in and invites a new doctor by email. Doctors can't register themselves. They get an invitation and choose their own password." },
+  { "id": "signup", "caption": "Patients sign up and verify their email", "text": "Now a patient signs up and verifies their email. Until they do, booking and the health features stay locked." },
+  { "id": "recommend", "caption": "ML recommender: symptoms in, specialty and doctors out", "text": "Describe your symptoms in plain words, and a machine learning model predicts the right specialty, then suggests real doctors who match." },
+  { "id": "emergency", "caption": "Emergency wording is caught by rules, not ML", "text": "If the wording sounds like an emergency, plain safety rules take over, and the app warns you instead of recommending a booking." },
+  { "id": "risk", "caption": "Diabetes risk check with an explanation", "text": "The diabetes risk check returns a score, and shows exactly which factors pushed it up or down. Results are encrypted in the database." },
+  { "id": "chat", "caption": "Aria: streaming AI health assistant", "text": "Aria is the AI health assistant. Replies stream in live, and the same emergency rules override the model whenever it matters." },
+  { "id": "book", "caption": "Book and reschedule appointments", "text": "The patient books the new doctor, and can reschedule later. A database constraint makes double booking impossible, even when two requests arrive at the same moment." },
+  { "id": "message", "caption": "Private messages with the doctor", "text": "Every appointment has a private conversation between the patient and the doctor. Messages are encrypted, and nobody else can read them." },
+  { "id": "doctor", "caption": "The doctor's side", "text": "Now the doctor signs in, sees the booking, reads the patient's message, replies, and marks the visit complete." },
+  { "id": "reply", "caption": "The patient sees the reply", "text": "Back on the patient's side, the doctor's reply is right there, and the appointment shows as completed." },
+  { "id": "reset", "caption": "Password reset by single-use link", "text": "Forgot your password? A single-use emailed link resets it, and signs out every other session." },
+  { "id": "lock", "caption": "Brute force protection", "text": "And repeated wrong guesses lock the account, to stop password guessing attacks." },
+  { "id": "tech", "caption": "Tech stack", "text": "Under the hood: Angular 20 on the front end, with signals and lazy loaded routes. Spring Boot 3 on Java 21 for the API, with Spring Security and J W T sessions. A Python FastAPI service runs the scikit-learn models. Chat streams from Claude through the Anthropic SDK. Health data is protected with rotating refresh cookies, A E S 256 encryption, and rate limiting, and the whole project is covered by hundreds of automated tests." },
+  { "id": "outro", "caption": "Thank you for watching!", "text": "Thank you for watching! If you enjoyed this, please follow the channel for more projects like this one. The code is open source on GitHub. See you in the next one!" }
+]

@@ -1,94 +1,104 @@
 # Demo: every feature, start to finish
 
-Screenshots in [`docs/demo/`](docs/demo) were captured by [`scripts/demo/record.mjs`](scripts/demo/record.mjs),
-which drives the real running app (no mock data in the screenshots). Re-run it any time to refresh them.
-
 ## Watch the video
 
-**[docs/demo/demo.mp4](docs/demo/demo.mp4)** (2 min 48 s, captioned): the whole tour below, recorded from the live app.
-Regenerate it with `VIDEO=1` (needs ffmpeg), then compress:
+**[docs/demo/demo.mp4](docs/demo/demo.mp4)** (about 4.5 minutes, with voiceover and captions): admin, patient and doctor
+journeys, the ML features, security, and a tech-stack outro. It is recorded from the live app by
+[`scripts/demo/record.mjs`](scripts/demo/record.mjs); the narration is spoken with ElevenLabs text-to-speech
+from the lines in [`scripts/demo/narration.json`](scripts/demo/narration.json).
+
+> The recording uses the chat's scripted **demo mode** (clearly labelled in the UI). With a valid `ANTHROPIC_API_KEY`
+> the same screen gives real Claude replies.
+
+### Re-record it
 
 ```bash
-VIDEO=1 BACKEND_LOG=/tmp/backend.log ADMIN_PASSWORD=<...> node record.mjs     # from scripts/demo/
-ffmpeg -i docs/demo/demo-raw.mp4 -c:v libx264 -crf 30 -pix_fmt yuv420p -movflags +faststart docs/demo/demo.mp4
-```
-
-## Run it yourself
-
-```bash
-# .env (see README step 0) plus these demo values:
-#   SEED_DEMO_DATA=true  DEMO_DOCTOR_PASSWORD=<pick one>  ADMIN_EMAIL=admin@demo.test  ADMIN_PASSWORD=<12+ chars>
-cd ml-service && .venv/bin/python -m uvicorn app:app --port 8000          # 1. ML service
-cd backend && mvn spring-boot:run > /tmp/backend.log 2>&1                 # 2. API (emails go to the log)
-cd frontend && npm start                                                  # 3. UI on http://localhost:4200
-
+# 1. Run the three servers (see README). Use a fresh database, MAIL_MODE=log, SEED_DEMO_DATA=true,
+#    ADMIN_EMAIL / ADMIN_PASSWORD set, and CHAT_PROVIDER=mock for the scripted chat.
 cd scripts/demo && npm install
-BACKEND_LOG=/tmp/backend.log ADMIN_PASSWORD=<same as above> node record.mjs   # 4. replays the whole tour
+
+# 2. Voiceover: needs ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID (environment or the git-ignored .env at the repo root)
+node narration.mjs                      # writes .audio/*.mp3 and their durations (git-ignored)
+
+# 3. Record the app (each scene waits for its narration line), then mix the audio onto it
+VIDEO=1 BACKEND_LOG=/tmp/backend.log ADMIN_PASSWORD=<...> node record.mjs
+node mix.mjs                            # -> docs/demo/demo.mp4 (needs ffmpeg)
+
+# Screenshots only (the images below), no audio:
+BACKEND_LOG=/tmp/backend.log ADMIN_PASSWORD=<...> node record.mjs
 ```
 
-Without `ANTHROPIC_API_KEY` the chat runs in scripted **demo mode** (clearly labelled in the UI). Set the key for real Claude replies.
+The script creates a new doctor and patient with unique emails, so use a fresh database for each run.
 
-## The tour
+## The tour (screenshots)
 
-### 1. Accounts: sign up and verify email
-Patients register themselves (doctors cannot). Until the emailed link is used, a banner explains what is locked.
+### 1. Admin invites a doctor
+Doctors cannot register themselves. An admin (created from `ADMIN_*` env vars) adds one, who gets an invite email
+and chooses their own password. Deactivating a doctor ends their sessions and hides them from booking.
 
-| | |
-|---|---|
-| ![login](docs/demo/01-login.png) | ![register](docs/demo/02-register.png) |
-| ![unverified](docs/demo/03-dashboard-unverified-banner.png) | ![verified](docs/demo/04-email-verified.png) |
+![admin](docs/demo/admin-doctors.png)
+![add doctor](docs/demo/admin-add-doctor.png)
+![invited](docs/demo/admin-doctor-invited.png)
 
-### 2. Find a doctor (ML recommender)
+### 2. Patient signs up and verifies email
+Until the emailed link is used, a banner explains what is locked.
+
+![register](docs/demo/register.png)
+![unverified](docs/demo/dashboard-unverified-banner.png)
+![verified](docs/demo/email-verified.png)
+
+### 3. Find a doctor (ML recommender) and emergency rules
 Free-text symptoms go to a Python model that predicts the specialty; real doctors are ranked by it.
-Emergency wording ("crushing chest pain") is caught by plain rules, not ML, and shows a warning instead of doctors.
+Emergency wording is caught by plain rules, not ML, and shows a warning instead of doctors.
 
-![recommend](docs/demo/06-recommend-result.png)
-![emergency](docs/demo/07-recommend-emergency.png)
+![recommend](docs/demo/recommend-result.png)
+![emergency](docs/demo/recommend-emergency.png)
 
-### 3. Diabetes risk check
+### 4. Diabetes risk check
 A model trained on the public Pima dataset returns a score and shows which inputs pushed it up or down.
-Results are saved (encrypted at rest) and can be deleted.
+Results are encrypted at rest and can be deleted.
 
-![risk](docs/demo/09-risk-result.png)
-![history](docs/demo/10-risk-history.png)
+![risk](docs/demo/risk-result.png)
+![history](docs/demo/risk-history.png)
 
-### 4. Chat with Aria
+### 5. Chat with Aria
 Streaming replies over Server-Sent Events, a stop button, retry on error, and an emergency override.
 
-![chat](docs/demo/12-chat-reply.png)
-![chat emergency](docs/demo/13-chat-emergency.png)
+![chat](docs/demo/chat-reply.png)
+![chat emergency](docs/demo/chat-emergency.png)
 
-### 5. Appointments: book, list, reschedule
+### 6. Book and reschedule
 Double-booking is blocked by a database constraint. Lists are paged and filterable.
 
-![book](docs/demo/14-book-form.png)
-![list](docs/demo/15-appointments-list.png)
-![reschedule](docs/demo/16-reschedule-dialog.png)
-![dashboard](docs/demo/18-dashboard-summary.png)
+![book](docs/demo/book-form.png)
+![list](docs/demo/appointments-list.png)
+![reschedule](docs/demo/reschedule-dialog.png)
 
-### 6. Forgot and reset password
-The response is identical whether or not the email exists; the link works once, and a reset signs out every session.
+### 7. Private messages between patient and doctor
+Each appointment has its own thread. Only the two people on it can read or write (everyone else gets a 404),
+text is encrypted in the database, new messages appear within a few seconds, and a cancelled appointment becomes read-only.
 
-![forgot](docs/demo/20-forgot-password-sent.png)
-![reset](docs/demo/21-reset-password.png)
+![patient writes](docs/demo/messages-patient-sent.png)
+![doctor reads and replies](docs/demo/messages-doctor-replied.png)
 
-### 7. Brute-force protection
+### 8. The doctor's side
+The doctor sees only their own bookings, reads the patient's message, replies and marks the visit completed.
+
+![doctor dashboard](docs/demo/doctor-dashboard.png)
+![doctor appointments](docs/demo/doctor-appointments.png)
+![completed](docs/demo/doctor-completed.png)
+
+### 9. The patient sees the reply
+![reply](docs/demo/messages-patient-reply.png)
+
+### 10. Password reset and brute-force protection
+The reset response is identical whether or not the email exists, the link works once, and a reset signs out every session.
 Repeated wrong passwords lock that account and address pair for 15 minutes.
 
-![locked](docs/demo/23-login-locked.png)
+![forgot](docs/demo/forgot-password-sent.png)
+![reset](docs/demo/reset-password.png)
+![locked](docs/demo/login-locked.png)
 
-### 8. Admin manages doctors
-An admin (created from `ADMIN_*` env vars) adds a doctor, who gets an invite email to set their own password.
-Deactivating a doctor ends their sessions and hides them from booking.
-
-![admin](docs/demo/24-admin-doctors.png)
-![add](docs/demo/25-admin-add-doctor.png)
-![invited](docs/demo/26-admin-doctor-invited.png)
-
-### 9. Doctor view
-The invited doctor sets a password, signs in, and sees their own schedule (they can complete or cancel bookings).
-
-![doctor](docs/demo/28-doctor-dashboard.png)
-
-## Also in the app (not screenshotted)
-Swagger UI at `/swagger-ui.html`, HTTPS with HSTS (`scripts/dev-cert.sh`), silent token refresh, and key rotation for encrypted data. See the README.
+## Also in the app (not shown)
+Swagger UI at `/swagger-ui.html`, HTTPS with HSTS (`scripts/dev-cert.sh`), silent token refresh, and key rotation for
+encrypted data. See the README.
