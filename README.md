@@ -236,18 +236,19 @@ so clients can never sort by arbitrary columns.
 | GET / DELETE | `/api/risk/history?level=&page=&size=&sort=`, `/api/risk/history/{id}` | patient (own records only; paged) |
 | GET | `/api/chat/status` | patient (which provider is active) |
 | POST | `/api/chat/stream` | patient (Server-Sent Events) |
+| GET / POST | `/api/appointments/{id}/messages?after=` | the patient and doctor on that appointment only (others get 404). Text is encrypted at rest; closed once cancelled; 200 messages per thread |
 | PATCH | `/api/appointments/{id}/cancel` | patient or doctor on it |
 | PATCH | `/api/appointments/{id}/complete` | doctor on it |
 
 Errors always look like `{ timestamp, status, message, fieldErrors? }`.
 
-## Automated tests (384)
+## Automated tests (407)
 
 | Suite | Count | Run | What it covers |
 |---|---|---|---|
-| Backend: JUnit 5 + MockMvc + H2 + GreenMail | 250 | `cd backend && mvn test` | Every endpoint through the real security filters and JPA: auth, permissions and data isolation, booking/conflicts/reschedule, paging, filtering, sorting whitelist, summary, risk checks, recommender, streaming chat, rate limit, sessions and refresh rotation, encryption, email verification, password reset, admin doctor management, OpenAPI spec. Plus unit tests for the emergency rules, JWT, paging helper |
+| Backend: JUnit 5 + MockMvc + H2 + GreenMail | 260 | `cd backend && mvn test` | Every endpoint through the real security filters and JPA: auth, permissions and data isolation, booking/conflicts/reschedule, paging, filtering, sorting whitelist, summary, risk checks, recommender, streaming chat, rate limit, sessions and refresh rotation, encryption, email verification, password reset, admin doctor management, doctor-patient messages, OpenAPI spec. Plus unit tests for the emergency rules, JWT, paging helper |
 | ML service: pytest | 32 | `cd ml-service && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/python -m pytest` | Both models: expected predictions, explanation adds up exactly to the score, every factor pushes the right way, quality floors (a bad retrain fails here) |
-| Angular: Karma/Jasmine | 102 | `cd frontend && ng test --watch=false --browsers=ChromeHeadless` (needs Chrome) | Paged appointment store (stale responses, silent refresh, step-back), chat store (streaming, stop, retry, emergencies), guards, validators, error parser |
+| Angular: Karma/Jasmine | 115 | `cd frontend && ng test --watch=false --browsers=ChromeHeadless` (needs Chrome) | Paged appointment store (stale responses, silent refresh, step-back), chat store (streaming, stop, retry, emergencies), guards, validators, error parser |
 
 The backend tests replace only the Python ML service with a mock, so no network, API key or
 running servers are needed. I checked the tests really bite by temporarily breaking the code

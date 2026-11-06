@@ -59,6 +59,12 @@ export const routes: Routes = [
         title: 'Appointments',
       },
       {
+        path: 'appointments/:id/messages',
+        loadComponent: () =>
+          import('./features/messages/messages.component').then((m) => m.MessagesComponent),
+        title: 'Messages',
+      },
+      {
         path: 'admin/doctors',
         canActivate: [roleGuard('ADMIN')],
         loadComponent: () =>

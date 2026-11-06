@@ -211,3 +211,23 @@ export interface UpdateDoctorPayload {
   specialty?: string;
   active?: boolean;
 }
+
+export interface ChatMessage {
+  id: number;
+  senderId: number;
+  senderName: string;
+  /** True when the signed-in user wrote it. */
+  mine: boolean;
+  body: string;
+  createdAt: string;
+}
+
+export interface MessageThread {
+  appointmentId: number;
+  withName: string;
+  withRole: 'PATIENT' | 'DOCTOR';
+  status: 'BOOKED' | 'CANCELLED' | 'COMPLETED';
+  dateTime: string;
+  canSend: boolean;
+  messages: ChatMessage[];
+}

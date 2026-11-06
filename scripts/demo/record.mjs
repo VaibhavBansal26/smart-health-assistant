@@ -1,10 +1,11 @@
 // Walks through every feature of the running app and saves screenshots to docs/demo/.
-// VIDEO=1 records docs/demo/demo.mp4 (captions, slower typing, needs ffmpeg) instead of screenshots.
+// VIDEO=1 records docs/demo/demo-raw.mp4 with captions and slower typing, timing each scene to the voiceover
+// produced by narration.mjs (run that first), and writes docs/demo/narration-timeline.json for mix.mjs.
 // Needs: ML service, backend (MAIL_MODE=log, SEED_DEMO_DATA=true, ADMIN_* set) and frontend running.
 // Config via env: CHROME_BIN, BACKEND_LOG (file the backend logs to), APP_URL, API_URL,
 //                 ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_DOCTOR_PASSWORD.
 import puppeteer from 'puppeteer-core';
-import { readFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,7 +21,6 @@ if (!LOG || !ADMIN.password) { console.error('Set BACKEND_LOG and ADMIN_PASSWORD
 const run = Date.now().toString(36);
 const PATIENT = { name: 'Nora Vega', email: `nora.${run}@demo.test`, password: 'Patient-Pass-123' };
 const NEW_DOC = { name: 'Dr. Ivy Chen', email: `ivy.${run}@demo.test`, specialty: 'Dermatology', password: 'Doctor-Pass-12345' };
-const DOCTOR_FOR_BOOKING = 'Cardio';
 
 const VIDEO = process.env.VIDEO === '1';
 mkdirSync(OUT, { recursive: true });
@@ -40,6 +40,24 @@ await page.evaluateOnNewDocument(() => {
   document.addEventListener('DOMContentLoaded', draw);
   new MutationObserver(draw).observe(document, { childList: true, subtree: true });
 });
+const NARR = JSON.parse(readFileSync(join(here, 'narration.json'), 'utf8'));
+const DUR = VIDEO ? JSON.parse(readFileSync(join(here, '.audio', 'durations.json'), 'utf8')) : {};
+const timeline = [];
+let t0 = 0;
+let speakingUntil = 0;
+/** Starts a scene: waits for the previous line to finish, captions it, and notes when its audio must start. */
+async function say(id) {
+  if (!VIDEO) return;
+  const wait = speakingUntil - Date.now();
+  if (wait > 0) await sleep(wait + 350);
+  const line = NARR.find((l) => l.id === id);
+  await caption(line.caption);
+  timeline.push({ id, startMs: Date.now() - t0 });
+  speakingUntil = Date.now() + DUR[id] * 1000;
+}
+async function card(html) {
+  await page.evaluate((h) => { document.body.innerHTML = h; document.getElementById('demo-cap')?.remove(); }, html);
+}
 async function caption(text) {
   if (!VIDEO) return;
   await page.evaluate((t) => { window.name = 'cap:' + t; document.getElementById('demo-cap')?.remove(); const e = document.createElement('div'); e.id = 'demo-cap'; e.textContent = t; e.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;padding:14px 24px;font:600 20px system-ui,sans-serif;color:#fff;background:rgba(15,23,42,.88);text-align:center;pointer-events:none'; document.body.appendChild(e); }, text);
@@ -48,7 +66,7 @@ async function caption(text) {
 async function shot(name) {
   if (VIDEO) { await sleep(2200); return; }
   await sleep(500);
-  const file = `${String(++n).padStart(2, '0')}-${name}.png`;
+  const file = `${name}.png`; n++;
   await page.screenshot({ path: join(OUT, file) });
   console.log('  saved', file);
 }
@@ -56,6 +74,13 @@ const go = async (path) => { await page.goto(APP + path, { waitUntil: 'networkid
 async function clickText(text, selector = 'button, a') {
   const ok = await page.evaluate((t, sel) => {
     const el = [...document.querySelectorAll(sel)].find((e) => e.textContent.trim().toLowerCase().includes(t.toLowerCase()) && !e.disabled);
+    if (el) { el.click(); return true; } return false;
+  }, text, selector);
+  if (!ok) throw new Error(`No clickable "${text}"`);
+}
+async function clickExact(text, selector = 'button, a') {
+  const ok = await page.evaluate((t, sel) => {
+    const el = [...document.querySelectorAll(sel)].find((e) => e.textContent.trim() === t && !e.disabled);
     if (el) { el.click(); return true; } return false;
   }, text, selector);
   if (!ok) throw new Error(`No clickable "${text}"`);
@@ -88,10 +113,31 @@ let rec;
 if (VIDEO) {
   await go('/login');
   rec = await page.screencast({ path: join(OUT, 'demo-raw.mp4') });
+  t0 = Date.now();
 }
 try {
-  console.log('1. Accounts: register, verify email');
-  await caption('Patients sign up and verify their email');
+  await say('intro');
+  if (VIDEO) {
+    await card(`<div style="height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#0f766e,#0f172a);color:#fff;font-family:system-ui,sans-serif;text-align:center"><div><div style="font-size:64px;font-weight:800">Smart Health Assistant</div><div style="font-size:26px;opacity:.85;margin-top:14px">Angular · Spring Boot · Machine Learning · Claude</div></div></div>`);
+    await sleep(NARR_INTRO_HOLD());
+    await go('/login');
+  }
+
+  console.log('1. Admin invites a doctor; the doctor sets a password');
+  await say('admin');
+  await signIn(ADMIN.email, ADMIN.password); await shot('admin-doctors');
+  await clickText('Add doctor'); await sleep(500);
+  await type('#d-name', NEW_DOC.name); await type('#d-email', NEW_DOC.email); await type('#d-spec', NEW_DOC.specialty);
+  await shot('admin-add-doctor');
+  await clickText('Send invitation', 'form button[type=submit]'); await sleep(1500);
+  await type('input[type=search]', NEW_DOC.name); await sleep(1000); await shot('admin-doctor-invited');
+  await signOut();
+  await go(`/reset-password?token=${lastEmailToken('reset-password')}`);
+  await type('#password', NEW_DOC.password); await type('#confirmPassword', NEW_DOC.password); await shot('doctor-invite');
+  await clickText('Save password', 'button[type=submit]'); await sleep(1500);
+
+  console.log('2. Patient: register, verify email');
+  await say('signup');
   await go('/login'); await shot('login');
   await go('/register');
   await type('#fullName', PATIENT.name); await type('#email', PATIENT.email);
@@ -100,29 +146,28 @@ try {
   await clickText('Create account', 'button[type=submit]');
   await page.waitForFunction(() => location.pathname === '/dashboard', { timeout: 15000 });
   await sleep(1500); await shot('dashboard-unverified-banner');
-  await sleep(1000);
   await go(`/verify-email?token=${lastEmailToken('verify-email')}`); await sleep(1200); await shot('email-verified');
   await go('/dashboard'); await sleep(1000);
 
-  console.log('2. Find a doctor (ML specialty recommender)');
-  await caption('ML recommender: symptoms in, matching specialty and doctors out');
+  console.log('3. Find a doctor (ML specialty recommender)');
+  await say('recommend');
   await go('/recommend');
-  await type('#symptoms', "I've had a dry cough for two weeks and I get wheezy at night");
+  await type('#symptoms', 'I have an itchy red rash on my arms that has been spreading for a week');
   await shot('recommend-form');
   await clickText('Find doctors', 'button[type=submit]');
   await waitFor(() => document.body.innerText.includes('Suggested doctors') || document.body.innerText.includes('emergency'), 'recommendations');
   await shot('recommend-result');
 
-  console.log('3. Emergency detection (rules, not ML)');
-  await caption('Emergency wording is caught by rules, not ML');
+  console.log('4. Emergency detection (rules, not ML)');
+  await say('emergency');
   await sleep(800);
   await type('#symptoms', 'I have crushing chest pain and my left arm is numb');
   await clickText('Find doctors', 'button[type=submit]');
   await waitFor(() => document.body.innerText.includes('emergency'), 'emergency warning');
   await shot('recommend-emergency');
 
-  console.log('4. Diabetes risk check (ML with explanation)');
-  await caption('Diabetes risk check: score plus what pushed it up or down');
+  console.log('5. Diabetes risk check (ML with explanation)');
+  await say('risk');
   await go('/risk');
   await type('#age', '52'); await type('#glucose', '168'); await type('#bmi', '33.5'); await type('#pregnancies', '2');
   await shot('risk-form');
@@ -131,21 +176,21 @@ try {
   await sleep(800); await shot('risk-result');
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await shot('risk-history');
 
-  console.log('5. AI chat "Aria" (streaming)');
-  await caption('Aria chat: streaming replies, emergency override');
+  console.log('6. AI chat "Aria" (streaming)');
+  await say('chat');
   await go('/chat'); await shot('chat-empty');
-  await page.type('textarea', 'I have had a headache and feel dizzy since yesterday');
+  await page.type('textarea', 'I have had a headache and feel dizzy since yesterday', { delay: VIDEO ? 45 : 0 });
   await page.keyboard.press('Enter');
   await sleep(9000); await shot('chat-reply');
-  await page.type('textarea', 'I am having severe chest pain and trouble breathing');
+  await page.type('textarea', 'I am having severe chest pain and trouble breathing', { delay: VIDEO ? 45 : 0 });
   await page.keyboard.press('Enter'); await sleep(5000); await shot('chat-emergency');
 
-  console.log('6. Book, list, reschedule');
-  await caption('Book, list and reschedule appointments');
+  console.log('7. Book, reschedule');
+  await say('book');
   await go('/appointments/new');
-  await type('input[type=search]', DOCTOR_FOR_BOOKING); await sleep(500);
+  await type('input[type=search]', 'Ivy'); await sleep(600);
   await page.click('.doctor');
-  await setValue('#dateTime', tomorrow(10)); await type('#reason', 'Chest tightness when climbing stairs');
+  await setValue('#dateTime', tomorrow(10)); await type('#reason', 'Itchy red rash on both arms for a week');
   await shot('book-form');
   await clickText('Confirm booking', 'button[type=submit]');
   await page.waitForFunction(() => location.pathname === '/appointments', { timeout: 15000 });
@@ -154,11 +199,36 @@ try {
   await setValue('#rs-dateTime', tomorrow(14)); await sleep(300);
   await shot('reschedule-dialog');
   await clickText('Save changes', 'form button[type=submit]'); await sleep(1500); await shot('appointments-rescheduled');
-  await go('/dashboard'); await sleep(1000); await shot('dashboard-summary');
 
-  console.log('7. Password reset');
-  await caption('Password reset by single-use emailed link');
+  console.log('8. Message the doctor');
+  await say('message');
+  await clickText('Messages'); await page.waitForSelector('textarea');
+  await page.type('textarea', 'Hello Doctor, the rash is itchier at night. Should I stop using my new soap?', { delay: VIDEO ? 40 : 0 });
+  await shot('messages-patient-draft');
+  await page.keyboard.press('Enter'); await sleep(1500); await shot('messages-patient-sent');
   await signOut();
+
+  console.log('9. Doctor: sees the booking, reads and replies, completes');
+  await say('doctor');
+  await signIn(NEW_DOC.email, NEW_DOC.password); await shot('doctor-dashboard');
+  await go('/appointments'); await sleep(1200); await shot('doctor-appointments');
+  await clickText('Messages'); await page.waitForSelector('textarea'); await sleep(1200); await shot('messages-doctor-read');
+  await page.type('textarea', 'Thanks for letting me know. Yes, please stop the new soap and use a fragrance-free moisturiser. I will check the rash at your visit.', { delay: VIDEO ? 35 : 0 });
+  await page.keyboard.press('Enter'); await sleep(1500); await shot('messages-doctor-replied');
+  await clickText('Back'); await page.waitForFunction(() => location.pathname === '/appointments'); await sleep(800);
+  await clickExact('Complete'); await sleep(1200);
+  await clickExact('Completed'); await sleep(1500); await shot('doctor-completed');
+  await signOut();
+
+  console.log('10. Patient sees the reply');
+  await say('reply');
+  await signIn(PATIENT.email, PATIENT.password);
+  await go('/appointments'); await sleep(1200);
+  await clickText('Messages'); await page.waitForSelector('textarea'); await sleep(1500); await shot('messages-patient-reply');
+  await signOut();
+
+  console.log('11. Password reset');
+  await say('reset');
   await go('/forgot-password'); await type('#email', PATIENT.email); await shot('forgot-password');
   await clickText('Send reset link', 'button[type=submit]'); await sleep(1500); await shot('forgot-password-sent');
   await go(`/reset-password?token=${lastEmailToken('reset-password')}`);
@@ -166,8 +236,8 @@ try {
   await type('#password', PATIENT.password); await type('#confirmPassword', PATIENT.password); await shot('reset-password');
   await clickText('Save password', 'button[type=submit]'); await sleep(1500); await shot('reset-done');
 
-  console.log('8. Login rate limiting');
-  await caption('Brute force is locked out after repeated wrong passwords');
+  console.log('12. Login rate limiting');
+  await say('lock');
   await go('/login');
   for (let i = 0; i < 6; i++) {
     await type('#email', PATIENT.email); await type('#password', `wrong-guess-${i}`);
@@ -175,25 +245,19 @@ try {
   }
   await shot('login-locked');
 
-  console.log('9. Admin: create a doctor by invite');
-  await caption('Admin invites a new doctor by email');
-  await signIn(ADMIN.email, ADMIN.password); await shot('admin-doctors');
-  await clickText('Add doctor'); await sleep(500);
-  await type('#d-name', NEW_DOC.name); await type('#d-email', NEW_DOC.email); await type('#d-spec', NEW_DOC.specialty);
-  await shot('admin-add-doctor');
-  await clickText('Send invitation', 'form button[type=submit]'); await sleep(1500);
-  await type('input[type=search]', NEW_DOC.name); await sleep(1000); await shot('admin-doctor-invited');
-  await signOut();
-
-  console.log('10. Doctor accepts invite and works their schedule');
-  await caption('The doctor sets a password and signs in');
-  await go(`/reset-password?token=${lastEmailToken('reset-password')}`);
-  await type('#password', NEW_DOC.password); await type('#confirmPassword', NEW_DOC.password); await shot('doctor-invite');
-  await clickText('Save password', 'button[type=submit]'); await sleep(1500);
-  await signIn(NEW_DOC.email, NEW_DOC.password); await shot('doctor-dashboard');
-  await signOut();
-  if (VIDEO) { await sleep(1500); await rec.stop(); }
-  console.log(`Done. ${n} screenshots in docs/demo/ (patient ${PATIENT.email})`);
+  if (VIDEO) {
+    await say('tech');
+    const items = [['Frontend', 'Angular 20 · signals · lazy routes · interceptors'], ['API', 'Spring Boot 3.5 · Java 21 · Spring Security · JWT'], ['ML service', 'Python · FastAPI · scikit-learn'], ['AI chat', 'Claude via the Anthropic Java SDK · SSE streaming'], ['Security', 'Rotating refresh cookies · AES-256-GCM · rate limiting · HSTS'], ['Quality', '250+ JUnit tests · Karma · pytest · OpenAPI docs']];
+    await card(`<div style="height:100vh;display:grid;place-items:center;background:#0f172a;color:#fff;font-family:system-ui,sans-serif"><div style="width:900px"><div style="font-size:44px;font-weight:800;margin-bottom:28px">Tech stack</div>${items.map(([a, b]) => `<div style="display:flex;gap:24px;padding:14px 0;border-top:1px solid #334155;font-size:24px"><span style="width:200px;color:#5eead4;font-weight:700">${a}</span><span>${b}</span></div>`).join('')}</div></div>`);
+    await say('outro');
+    await card(`<div style="height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#0f766e,#0f172a);color:#fff;font-family:system-ui,sans-serif;text-align:center"><div><div style="font-size:72px;font-weight:800">Thank you for watching!</div><div style="font-size:34px;margin-top:22px">Follow the channel for more projects like this</div><div style="font-size:24px;opacity:.85;margin-top:30px">github.com/VaibhavBansal26/smart-health-assistant</div></div></div>`);
+    // The screencast only emits frames while pixels change, so keep a subtle change going until the line ends.
+    let flip = 0;
+    while (Date.now() < speakingUntil + 1200) { await page.evaluate((f) => { document.body.firstElementChild.style.opacity = f ? '0.97' : '1'; }, flip++ % 2); await sleep(400); }
+    await rec.stop();
+    writeFileSync(join(OUT, 'narration-timeline.json'), JSON.stringify({ totalMs: Date.now() - t0, lines: timeline }, null, 2));
+  }
+  console.log(`Done. ${n} screenshots (patient ${PATIENT.email})`);
 } catch (e) {
   console.error('FAILED:', e.message);
   if (VIDEO) await rec.stop().catch(() => {});
@@ -202,3 +266,4 @@ try {
 } finally {
   await browser.close();
 }
+function NARR_INTRO_HOLD() { return Math.max(0, speakingUntil - Date.now()) + 500; }

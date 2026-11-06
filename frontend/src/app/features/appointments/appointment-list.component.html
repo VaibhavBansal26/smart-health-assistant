@@ -46,8 +46,9 @@
 
         <app-status-badge [status]="a.status" />
 
-        @if (a.status === 'BOOKED') {
-          <div class="actions">
+        <div class="actions">
+          <a class="btn secondary small" [routerLink]="['/appointments', a.id, 'messages']">Messages</a>
+          @if (a.status === 'BOOKED') {
             @if (auth.role() === 'DOCTOR') {
               <button type="button" class="btn small" [disabled]="store.isBusy(a.id)" (click)="complete(a)">
                 Complete
@@ -63,8 +64,8 @@
                     (click)="pendingCancel.set(a)">
               Cancel
             </button>
-          </div>
-        }
+          }
+        </div>
       </article>
     } @empty {
       <div class="card empty">
