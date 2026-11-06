@@ -36,18 +36,46 @@ public abstract class ApiTest {
     @Autowired protected MockMvc mvc;
     @Autowired protected ObjectMapper json;
     @MockitoBean protected MlClient ml;
+    @Autowired protected RecordingMailService mail;
+
+    public static final String ADMIN_EMAIL = "admin@test.dev";
+    public static final String ADMIN_PASSWORD = "Admin-Passw0rd-123";
 
     public record Account(String email, String token, long id) {
     }
 
     // ---------- accounts ----------
 
+    /** A patient who has registered AND clicked the verification link (so every feature is available). */
     protected Account newPatient() throws Exception {
+        Account patient = newUnverifiedPatient();
+        verifyEmailOf(patient.email());
+        return patient;
+    }
+
+    /** A patient straight after registration, before verifying the email address. */
+    protected Account newUnverifiedPatient() throws Exception {
         String email = "patient" + SEQ.incrementAndGet() + "-" + System.nanoTime() + "@test.dev";
         JsonNode res = body(post("/api/auth/register", null,
                 java.util.Map.of("fullName", "Test Patient", "email", email, "password", "Passw0rd!", "role", "PATIENT"))
                 .andReturn());
         return new Account(email, res.get("token").asText(), res.get("user").get("id").asLong());
+    }
+
+    /** Opens the link from the verification email, as the user would. */
+    protected void verifyEmailOf(String email) throws Exception {
+        String token = mail.tokenIn(mail.latestTo(email, "Verify your email"));
+        post("/api/auth/verify-email", null, java.util.Map.of("token", token))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent());
+    }
+
+    protected Account loginAs(String email, String password) throws Exception {
+        JsonNode res = body(post("/api/auth/login", null, java.util.Map.of("email", email, "password", password)).andReturn());
+        return new Account(email, res.get("token").asText(), res.get("user").get("id").asLong());
+    }
+
+    protected Account admin() throws Exception {
+        return loginAs(ADMIN_EMAIL, ADMIN_PASSWORD);
     }
 
     protected Account seededDoctor(String email) throws Exception {

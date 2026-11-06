@@ -9,6 +9,10 @@ export interface User {
   email: string;
   role: Role;
   specialty: string | null;
+  /** False until the person clicks the link in the verification email. */
+  emailVerified: boolean;
+  /** False for deactivated accounts (they cannot sign in at all). */
+  active: boolean;
 }
 
 export interface AuthResponse {
@@ -22,12 +26,11 @@ export interface LoginPayload {
   password: string;
 }
 
+/** Self-registration creates patients only; doctors are created by an administrator. */
 export interface RegisterPayload {
   fullName: string;
   email: string;
   password: string;
-  role: Exclude<Role, 'ADMIN'>;
-  specialty?: string | null;
 }
 
 export type AppointmentStatus = 'BOOKED' | 'CANCELLED' | 'COMPLETED';
@@ -183,4 +186,28 @@ export interface AppointmentSummary {
 export interface UpdateAppointmentPayload {
   dateTime?: string;
   reason?: string;
+}
+
+// ---- admin: doctor management ----
+
+export interface AdminDoctor {
+  id: number;
+  fullName: string;
+  email: string;
+  specialty: string;
+  active: boolean;
+  /** The doctor has not yet chosen a password through the invitation email. */
+  setupPending: boolean;
+}
+
+export interface CreateDoctorPayload {
+  fullName: string;
+  email: string;
+  specialty: string;
+}
+
+export interface UpdateDoctorPayload {
+  fullName?: string;
+  specialty?: string;
+  active?: boolean;
 }

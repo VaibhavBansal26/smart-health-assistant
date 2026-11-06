@@ -3,20 +3,12 @@
 
   <div>
     <h1>Create your account</h1>
-    <p class="muted">It takes less than a minute.</p>
+    <p class="muted">For patients. Doctors are invited by an administrator.</p>
   </div>
 
   @if (error(); as message) {
     <div class="alert error" role="alert">{{ message }}</div>
   }
-
-  <fieldset class="field role" style="border: 0; padding: 0; margin: 0">
-    <legend class="label">I am a</legend>
-    <div class="row">
-      <label class="role-option"><input type="radio" formControlName="role" value="PATIENT" /> Patient</label>
-      <label class="role-option"><input type="radio" formControlName="role" value="DOCTOR" /> Doctor</label>
-    </div>
-  </fieldset>
 
   <div class="field">
     <label for="fullName">Full name</label>
@@ -31,15 +23,6 @@
            [class.invalid]="form.controls.email.invalid && form.controls.email.touched" />
     <app-field-error [control]="form.controls.email" />
   </div>
-
-  @if (isDoctor) {
-    <div class="field">
-      <label for="specialty">Specialty</label>
-      <input id="specialty" class="input" formControlName="specialty" placeholder="e.g. Cardiology"
-             [class.invalid]="form.controls.specialty.invalid && form.controls.specialty.touched" />
-      <app-field-error [control]="form.controls.specialty" />
-    </div>
-  }
 
   <div class="field">
     <label for="password">Password</label>

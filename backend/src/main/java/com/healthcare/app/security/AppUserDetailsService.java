@@ -23,8 +23,10 @@ public class AppUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User u = users.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        return new org.springframework.security.core.userdetails.User(
-                u.getEmail(), u.getPassword(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + u.getRole().name())));
+        return org.springframework.security.core.userdetails.User.withUsername(u.getEmail())
+                .password(u.getPassword())
+                .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + u.getRole().name())))
+                .disabled(!u.isActive()) // a deactivated account can neither log in nor keep using an old access token
+                .build();
     }
 }

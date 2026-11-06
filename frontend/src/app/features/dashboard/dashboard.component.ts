@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { AppointmentStore } from '../../core/services/appointment.store';
 import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
@@ -29,7 +29,13 @@ export class DashboardComponent {
     ];
   });
 
+  private readonly router = inject(Router);
+
   constructor() {
+    if (this.auth.role() === 'ADMIN') {
+      this.router.navigateByUrl('/admin/doctors', { replaceUrl: true }); // admins have no appointments
+      return;
+    }
     this.store.loadSummary();
   }
 

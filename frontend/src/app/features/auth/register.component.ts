@@ -1,5 +1,4 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -10,6 +9,7 @@ import { SpinnerComponent } from '../../shared/components/spinner.component';
 import { firstName } from '../../shared/utils/name.util';
 import { fieldsMatch, passwordStrength } from '../../shared/validators/validators';
 
+/** Patients register themselves. Doctors are created by an administrator, who emails them an invitation. */
 @Component({
   selector: 'app-register',
   imports: [ReactiveFormsModule, RouterLink, FieldErrorComponent, SpinnerComponent],
@@ -26,8 +26,6 @@ export class RegisterComponent {
     {
       fullName: ['', [Validators.required, Validators.maxLength(100)]],
       email: ['', [Validators.required, Validators.email]],
-      role: ['PATIENT' as 'PATIENT' | 'DOCTOR'],
-      specialty: [''],
       password: ['', [Validators.required, Validators.minLength(8), passwordStrength]],
       confirmPassword: ['', [Validators.required]],
     },
@@ -37,26 +35,6 @@ export class RegisterComponent {
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  constructor() {
-    // Conditional validation: specialty is required only for doctors.
-    this.form.controls.role.valueChanges
-      .pipe(takeUntilDestroyed(inject(DestroyRef)))
-      .subscribe((role) => {
-        const specialty = this.form.controls.specialty;
-        if (role === 'DOCTOR') {
-          specialty.addValidators(Validators.required);
-        } else {
-          specialty.removeValidators(Validators.required);
-          specialty.reset('');
-        }
-        specialty.updateValueAndValidity();
-      });
-  }
-
-  protected get isDoctor(): boolean {
-    return this.form.controls.role.value === 'DOCTOR';
-  }
-
   protected submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -65,10 +43,10 @@ export class RegisterComponent {
     this.submitting.set(true);
     this.error.set(null);
 
-    const { confirmPassword: _ignored, ...payload } = this.form.getRawValue();
-    this.auth.register({ ...payload, specialty: this.isDoctor ? payload.specialty : null }).subscribe({
+    const { fullName, email, password } = this.form.getRawValue();
+    this.auth.register({ fullName, email, password }).subscribe({
       next: (user) => {
-        this.toast.success(`Welcome, ${firstName(user.fullName)}!`);
+        this.toast.success(`Welcome, ${firstName(user.fullName)}! Check your inbox to verify your email.`);
         this.router.navigateByUrl('/dashboard');
       },
       error: (err) => {

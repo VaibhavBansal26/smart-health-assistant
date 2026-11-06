@@ -5,10 +5,14 @@
     </a>
 
     <nav aria-label="Main">
-      <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
-      <a routerLink="/appointments" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
-        Appointments
-      </a>
+      @if (auth.role() === 'ADMIN') {
+        <a routerLink="/admin/doctors" routerLinkActive="active">Doctors</a>
+      } @else {
+        <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+        <a routerLink="/appointments" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+          Appointments
+        </a>
+      }
       @if (auth.role() === 'PATIENT') {
         <a routerLink="/chat" routerLinkActive="active">AI chat</a>
         <a routerLink="/recommend" routerLinkActive="active">Find a doctor</a>
@@ -31,6 +35,22 @@
     <button type="button" class="btn secondary small" (click)="auth.logout()">Sign out</button>
   </div>
 </header>
+
+@if (auth.user(); as user) {
+  @if (!user.emailVerified && user.role === 'PATIENT') {
+    <div class="verify-banner" role="status">
+      <div class="inner">
+        <span>
+          <strong>Verify your email to unlock booking, chat and health checks.</strong>
+          We sent a link to {{ user.email }}.
+        </span>
+        <button type="button" class="btn secondary small" [disabled]="resending() || resent()" (click)="resend()">
+          {{ resent() ? 'Email sent' : resending() ? 'Sending...' : 'Resend email' }}
+        </button>
+      </div>
+    </div>
+  }
+}
 
 <main class="page">
   <router-outlet />

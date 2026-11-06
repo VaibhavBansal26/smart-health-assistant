@@ -40,7 +40,8 @@ public class DoctorController {
             @Parameter(description = "field,direction. Fields: fullName, specialty, id") @RequestParam(required = false) String sort) {
 
         var pageable = Paging.of(page, size, sort, SORTABLE, Sort.by(Sort.Direction.ASC, "fullName"));
-        Specification<User> spec = (root, query, cb) -> cb.equal(root.get("role"), Role.DOCTOR);
+        // deactivated doctors are not offered to patients
+        Specification<User> spec = (root, query, cb) -> cb.and(cb.equal(root.get("role"), Role.DOCTOR), cb.isTrue(root.get("active")));
 
         if (specialty != null && !specialty.isBlank()) {
             String wanted = specialty.trim().toLowerCase(Locale.ROOT);

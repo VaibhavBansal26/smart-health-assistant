@@ -1,0 +1,20 @@
+:host { display: block; }
+.toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.search { max-width: 340px; flex: 1; min-width: 200px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+  font: inherit; font-weight: 600; color: var(--muted); cursor: pointer;
+  &:hover { color: var(--text); }
+  &.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+}
+.item { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; padding: 14px 18px; flex-wrap: wrap; }
+.item.inactive { opacity: 0.75; }
+.info { flex: 1; min-width: 220px; }
+.title { font-weight: 700; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.off { background: var(--danger-soft); color: #991b1b; }
+.badge.wait { background: var(--warn-soft); color: var(--warn); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; flex-wrap: wrap; }

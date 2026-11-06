@@ -1,0 +1,28 @@
+<div class="card auth-card" aria-live="polite">
+  <div class="brand"><span class="logo" aria-hidden="true">+</span> HealthCare</div>
+
+  @switch (state()) {
+    @case ('verifying') {
+      <div class="row"><app-spinner /> <span>Verifying your email...</span></div>
+    }
+    @case ('verified') {
+      <div>
+        <h1>Email verified</h1>
+        <p class="muted">Thank you. You can now book appointments, chat with Aria and run health checks.</p>
+      </div>
+      <a class="btn block" [routerLink]="signedIn() ? '/dashboard' : '/login'">
+        {{ signedIn() ? 'Go to my dashboard' : 'Sign in' }}
+      </a>
+    }
+    @case ('failed') {
+      <div>
+        <h1>We could not verify your email</h1>
+        <p class="muted">{{ error() }}</p>
+      </div>
+      <p class="hint">
+        Links work once and expire after a day. Sign in and use the banner at the top of the page to get a new one.
+      </p>
+      <a class="btn block" routerLink="/login">Sign in</a>
+    }
+  }
+</div>

@@ -163,9 +163,12 @@ describe('AppointmentStore', () => {
     });
 
     it('create: POSTs and only refreshes what has been loaded before', () => {
-      store.create({ doctorId: 2, dateTime: '2031-01-01T10:00', reason: 'x' }).subscribe();
+      let created: Appointment | undefined;
+      store.create({ doctorId: 2, dateTime: '2031-01-01T10:00', reason: 'x' }).subscribe((a) => (created = a));
       http.expectOne(LIST).flush(appt(3));
-      // nothing was loaded, so no GET follows (http.verify() in afterEach checks that)
+
+      expect(created?.id).toBe(3);
+      expect(store.status()).toBe('idle'); // nothing was loaded, so no GET follows (http.verify() would catch one)
     });
 
     it('a failed change clears the busy flag and does not refresh', () => {

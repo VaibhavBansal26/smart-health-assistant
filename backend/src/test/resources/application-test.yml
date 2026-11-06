@@ -7,6 +7,21 @@ spring:
       ddl-auto: create-drop
 
 app:
+  base-url: http://app.test
+  admin:
+    email: admin@test.dev
+    password: Admin-Passw0rd-123
+  security:
+    # test-only key (never used outside tests)
+    data-encryption-key: dGVzdC1vbmx5LWtleS1kby1ub3QtdXNlLWluLXByb2Q=
+  auth:
+    # 0 = any reuse of a rotated refresh token counts as theft; the grace-window tests raise it themselves
+    refresh-reuse-grace-seconds: 0
+    cookie:
+      secure: true
+    rate-limit:
+      # tests share one client IP and make hundreds of calls; the dedicated IP-limit test lowers this itself
+      ip-max-requests: 100000
   jwt:
     secret: test-only-jwt-secret-not-used-anywhere-else-0123456789
   seed:

@@ -2,6 +2,15 @@
 # For local development, copy .env.example to .env: it is loaded automatically when you run from backend/ or the repo root.
 server:
   port: ${SERVER_PORT:8080}
+  # Set to "framework" ONLY when running behind a trusted reverse proxy, so client IPs (used by rate limiting) are read
+  # from X-Forwarded-For. Leave as "none" otherwise: the header is spoofable when clients connect directly.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+  ssl:
+    # Terminate TLS in the app itself (or leave off and terminate at a reverse proxy / load balancer)
+    enabled: ${SSL_ENABLED:false}
+    key-store: ${SSL_KEY_STORE:}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD:}
+    key-store-type: ${SSL_KEY_STORE_TYPE:PKCS12}
 
 springdoc:
   # interactive API docs at /swagger-ui.html and the raw spec at /v3/api-docs; set SWAGGER_ENABLED=false in production
@@ -22,6 +31,15 @@ spring:
       enabled: true   # streaming chat holds a request open; virtual threads keep that cheap
   application:
     name: healthcare-api
+  mail:
+    # only used when MAIL_MODE=smtp
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      "[mail.smtp.auth]": ${MAIL_SMTP_AUTH:true}
+      "[mail.smtp.starttls.enable]": ${MAIL_STARTTLS:true}
   datasource:
     # defaults to a local H2 file for development; point DB_URL at PostgreSQL etc. elsewhere
     url: ${DB_URL:jdbc:h2:file:./data/healthcare;AUTO_SERVER=TRUE}
@@ -36,12 +54,55 @@ spring:
       enabled: false
 
 app:
+  # Where the Angular app is served: used to build the links in emails
+  base-url: ${APP_BASE_URL:http://localhost:4200}
+  mail:
+    # log = write emails (links included) to the application log: DEVELOPMENT ONLY. smtp = really send them.
+    mode: ${MAIL_MODE:log}
+    from: ${MAIL_FROM:no-reply@localhost}
+  admin:
+    # Creates the first administrator at startup if no account with this email exists (password: 12+ characters)
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    full-name: ${ADMIN_NAME:Administrator}
   jwt:
     # REQUIRED, no default: the app refuses to start without it (min 32 characters).
     secret: ${JWT_SECRET:}
-    expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+    # Access tokens are short-lived on purpose; the refresh cookie keeps people signed in.
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
+  security:
+    # true = redirect/refuse plain http (set it in production; also set FORWARD_HEADERS_STRATEGY=framework behind a proxy)
+    require-https: ${REQUIRE_HTTPS:false}
+    # REQUIRED, no default: 32 random bytes as base64 (openssl rand -base64 32). Encrypts sensitive columns.
+    data-encryption-key: ${DATA_ENCRYPTION_KEY:}
+    # Optional, only during key rotation: the previous key, so old rows stay readable
+    data-encryption-key-previous: ${DATA_ENCRYPTION_KEY_PREVIOUS:}
+  auth:
+    # Health features need a verified email. Set false only if you cannot send email.
+    require-verified-email: ${REQUIRE_VERIFIED_EMAIL:true}
+    verify-token-hours: ${VERIFY_TOKEN_HOURS:24}
+    reset-token-minutes: ${RESET_TOKEN_MINUTES:60}
+    invite-token-hours: ${INVITE_TOKEN_HOURS:72}
+    # minimum gap between two emails of the same kind to the same account
+    email-cooldown-seconds: ${EMAIL_COOLDOWN_SECONDS:60}
+    refresh-token-days: ${REFRESH_TOKEN_DAYS:14}
+    # a refresh token reused within this many seconds is treated as a second browser tab, not theft
+    refresh-reuse-grace-seconds: ${REFRESH_REUSE_GRACE_SECONDS:10}
+    cookie:
+      # Secure = HTTPS only. Set COOKIE_SECURE=false ONLY for local http development.
+      secure: ${COOKIE_SECURE:true}
+      same-site: ${COOKIE_SAMESITE:Strict}
+    rate-limit:
+      # failed logins per (account, IP) before that pair is locked
+      max-failed-logins: ${AUTH_MAX_FAILED_LOGINS:5}
+      # failed logins per account across ALL IPs (distributed guessing)
+      max-failed-logins-per-account: ${AUTH_MAX_FAILED_LOGINS_PER_ACCOUNT:20}
+      lockout-minutes: ${AUTH_LOCKOUT_MINUTES:15}
+      # requests per IP to login/register (and later reset endpoints) per window
+      ip-max-requests: ${AUTH_IP_MAX_REQUESTS:60}
+      ip-window-minutes: ${AUTH_IP_WINDOW_MINUTES:15}
   seed:
     # Demo doctors are only created when explicitly enabled; their password must also come from the environment.
     demo-doctors: ${SEED_DEMO_DATA:false}

@@ -4,6 +4,7 @@ import com.healthcare.app.appointment.AppointmentDtos.AppointmentResponse;
 import com.healthcare.app.appointment.AppointmentDtos.CreateRequest;
 import com.healthcare.app.appointment.AppointmentDtos.SummaryResponse;
 import com.healthcare.app.appointment.AppointmentDtos.UpdateRequest;
+import com.healthcare.app.auth.VerifiedEmailGuard;
 import com.healthcare.app.common.PageResponse;
 import com.healthcare.app.common.Paging;
 import com.healthcare.app.exception.ApiException;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -39,10 +41,12 @@ public class AppointmentController {
 
     private final AppointmentRepository appointments;
     private final UserRepository users;
+    private final VerifiedEmailGuard verified;
 
-    public AppointmentController(AppointmentRepository appointments, UserRepository users) {
+    public AppointmentController(AppointmentRepository appointments, UserRepository users, VerifiedEmailGuard verified) {
         this.appointments = appointments;
         this.users = users;
+        this.verified = verified;
     }
 
     @GetMapping
@@ -94,17 +98,23 @@ public class AppointmentController {
     @Operation(summary = "Book an appointment (patients only)",
             description = "409 if the doctor already has a booking at that time.")
     public AppointmentResponse create(@Valid @RequestBody CreateRequest req, Authentication auth) {
+        verified.require(auth);
         User patient = currentUser(auth);
         User doctor = users.findById(req.doctorId())
-                .filter(u -> u.getRole() == com.healthcare.app.user.Role.DOCTOR)
+                .filter(u -> u.getRole() == com.healthcare.app.user.Role.DOCTOR && u.isActive())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Doctor not found"));
         if (appointments.existsByDoctorIdAndDateTimeAndStatus(
                 doctor.getId(), req.dateTime(), Appointment.Status.BOOKED)) {
             throw new ApiException(HttpStatus.CONFLICT, "That time slot is already booked");
         }
-        Appointment saved = appointments.save(
-                new Appointment(patient, doctor, req.dateTime(), req.reason().trim()));
-        return AppointmentResponse.from(saved);
+        try {
+            // flush now so the unique slot constraint is checked inside this request, not at commit time
+            return AppointmentResponse.from(appointments.saveAndFlush(
+                    new Appointment(patient, doctor, req.dateTime(), req.reason().trim())));
+        } catch (DataIntegrityViolationException raced) {
+            // lost a race against another booking for the same slot: the database is the final judge
+            throw slotTaken();
+        }
     }
 
     @PatchMapping("/{id}")
@@ -130,6 +140,11 @@ public class AppointmentController {
         }
         if (req.reason() != null) {
             a.setReason(req.reason().trim());
+        }
+        try {
+            appointments.flush();
+        } catch (DataIntegrityViolationException raced) {
+            throw slotTaken();
         }
         return AppointmentResponse.from(a);
     }
@@ -157,6 +172,10 @@ public class AppointmentController {
         }
         a.setStatus(Appointment.Status.COMPLETED);
         return AppointmentResponse.from(a);
+    }
+
+    private static ApiException slotTaken() {
+        return new ApiException(HttpStatus.CONFLICT, "That time slot is already booked");
     }
 
     private User currentUser(Authentication auth) {

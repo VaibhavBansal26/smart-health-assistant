@@ -23,6 +23,7 @@ class AuthApiTest extends ApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.token", not(emptyString())))
                 .andExpect(jsonPath("$.user.role").value("PATIENT"))
+                .andExpect(jsonPath("$.user.emailVerified").value(false)) // must click the emailed link first
                 .andExpect(jsonPath("$.user.password").doesNotExist());
     }
 
@@ -53,11 +54,28 @@ class AuthApiTest extends ApiTest {
     }
 
     @Test
-    void register_doctorMustProvideSpecialty() throws Exception {
+    void register_doctorsCannotSelfRegister_anAdministratorCreatesThem() throws Exception {
         post("/api/auth/register", null, Map.of("fullName", "Dr X", "email", "d" + System.nanoTime() + "@test.dev",
-                "password", "Passw0rd!", "role", "DOCTOR"))
+                "password", "Passw0rd!", "role", "DOCTOR", "specialty", "Cardiology"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Specialty is required for doctors"));
+                .andExpect(jsonPath("$.message").value("Doctor accounts are created by an administrator"));
+    }
+
+    @Test
+    void register_roleIsOptional_andDefaultsToPatient() throws Exception {
+        post("/api/auth/register", null, Map.of("fullName", "No Role", "email", "nr" + System.nanoTime() + "@test.dev",
+                "password", "Passw0rd!"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.user.role").value("PATIENT"));
+    }
+
+    @Test
+    void register_passwordNeedsALetterAndANumber() throws Exception {
+        for (String weak : new String[]{"abcdefgh", "12345678", "short1A"}) {
+            post("/api/auth/register", null, Map.of("fullName", "Weak", "email", "w" + System.nanoTime() + "@test.dev", "password", weak))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.password", containsString("letter and a number")));
+        }
     }
 
     @Test
@@ -67,7 +85,7 @@ class AuthApiTest extends ApiTest {
         post("/api/auth/login", null, Map.of("email", email, "password", "Passw0rd!"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token", not(emptyString())))
-                .andExpect(jsonPath("$.expiresInSeconds").value(3600));
+                .andExpect(jsonPath("$.expiresInSeconds").value(900)); // access tokens last 15 minutes
     }
 
     @Test
