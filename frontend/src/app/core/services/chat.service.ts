@@ -1,8 +1,9 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Injectable, Injector, inject } from '@angular/core';
+import { Observable, firstValueFrom } from 'rxjs';
 import { API_URL } from '../api.config';
 import { ChatStatus, ChatStreamEvent, ChatTurn } from '../models/models';
+import { AuthService } from './auth.service';
 import { TokenStorage } from './token-storage.service';
 
 /** Thrown when the server rejects the request before streaming starts (401, 400, 429...). */
@@ -20,6 +21,8 @@ export class ChatService {
   private readonly http = inject(HttpClient);
   private readonly api = inject(API_URL);
   private readonly tokens = inject(TokenStorage);
+  // AuthService depends (indirectly) on this service, so it is looked up lazily
+  private readonly injector = inject(Injector);
 
   status(): Observable<ChatStatus> {
     return this.http.get<ChatStatus>(`${this.api}/chat/status`);
@@ -39,17 +42,25 @@ export class ChatService {
 
       (async () => {
         try {
-          const token = this.tokens.get();
-          const res = await fetch(`${this.api}/chat/stream`, {
-            method: 'POST',
-            signal: abort.signal,
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'text/event-stream',
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ messages }),
-          });
+          const send = () =>
+            fetch(`${this.api}/chat/stream`, {
+              method: 'POST',
+              signal: abort.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'text/event-stream',
+                ...(this.tokens.get() ? { Authorization: `Bearer ${this.tokens.get()}` } : {}),
+              },
+              body: JSON.stringify({ messages }),
+            });
+          let res = await send();
+          if (res.status === 401) {
+            // the 15-minute access token expired: refresh it once and retry (plain fetch bypasses the HTTP interceptors)
+            const refreshed = await firstValueFrom(this.injector.get(AuthService).refresh());
+            if (refreshed) {
+              res = await send();
+            }
+          }
 
           if (!res.ok || !res.body) {
             // errors before the stream starts are normal JSON bodies

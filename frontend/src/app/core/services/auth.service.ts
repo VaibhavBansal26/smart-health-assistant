@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, catchError, map, of, tap } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { API_URL } from '../api.config';
 import { AuthResponse, LoginPayload, RegisterPayload, User } from '../models/models';
 import { AppointmentStore } from './appointment.store';
@@ -27,6 +27,9 @@ export class AuthService {
   readonly isLoggedIn = computed(() => this._user() !== null);
   readonly role = computed(() => this._user()?.role ?? null);
 
+  /** The in-flight refresh, shared so simultaneous callers cause ONE request (the cookie rotates on every use). */
+  private refreshInFlight$?: Observable<boolean>;
+
   login(payload: LoginPayload): Observable<User> {
     return this.http
       .post<AuthResponse>(`${this.api}/auth/login`, payload)
@@ -40,6 +43,8 @@ export class AuthService {
   }
 
   logout(returnUrl?: string): void {
+    // Best effort: revoke the refresh token on the server and clear its cookie. We sign out locally either way.
+    this.http.post(`${this.api}/auth/logout`, {}).subscribe({ error: () => undefined });
     this.storage.clear();
     this._user.set(null);
     this.appointments.reset();
@@ -48,21 +53,34 @@ export class AuthService {
   }
 
   /**
-   * Runs once before the app renders (see provideAppInitializer in app.config).
-   * If a token is saved, ask the server who it belongs to, so a page refresh
-   * keeps the user logged in. Never errors: a bad token just means "logged out".
+   * Trades the HttpOnly refresh cookie for a new access token (and user). Emits true on success, false if there is no
+   * valid session. Never errors, so callers can just branch on the result. The interceptor adds the credentials and
+   * CSRF header for this endpoint.
+   */
+  refresh(): Observable<boolean> {
+    if (!this.refreshInFlight$) {
+      this.refreshInFlight$ = this.http.post<AuthResponse>(`${this.api}/auth/refresh`, {}).pipe(
+        tap((res) => this.startSession(res)),
+        map(() => true),
+        catchError((err) => {
+          if (err?.status === 401) {
+            this.storage.clear(); // the session is really gone; stop retrying on every page load
+          }
+          return of(false);
+        }),
+        finalize(() => (this.refreshInFlight$ = undefined)),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+    }
+    return this.refreshInFlight$;
+  }
+
+  /**
+   * Runs once before the app renders (see provideAppInitializer in app.config). If this browser had a session, ask the
+   * server for a fresh access token using the refresh cookie, so a page reload keeps the user signed in.
    */
   restoreSession(): Observable<unknown> {
-    if (!this.storage.get()) {
-      return of(null);
-    }
-    return this.http.get<User>(`${this.api}/auth/me`).pipe(
-      tap((user) => this._user.set(user)),
-      catchError(() => {
-        this.storage.clear();
-        return of(null);
-      }),
-    );
+    return this.storage.hasSessionHint() ? this.refresh() : of(false);
   }
 
   private startSession(res: AuthResponse): void {

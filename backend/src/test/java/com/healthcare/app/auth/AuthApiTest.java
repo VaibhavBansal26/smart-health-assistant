@@ -67,7 +67,7 @@ class AuthApiTest extends ApiTest {
         post("/api/auth/login", null, Map.of("email", email, "password", "Passw0rd!"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token", not(emptyString())))
-                .andExpect(jsonPath("$.expiresInSeconds").value(3600));
+                .andExpect(jsonPath("$.expiresInSeconds").value(900)); // access tokens last 15 minutes
     }
 
     @Test

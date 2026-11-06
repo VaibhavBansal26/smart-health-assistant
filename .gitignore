@@ -8,3 +8,8 @@
 .DS_Store
 .idea/
 *.log
+
+# Local HTTPS certificates (scripts/dev-cert.sh)
+.certs/
+*.p12
+*.jks

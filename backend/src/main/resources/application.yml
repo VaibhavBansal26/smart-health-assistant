@@ -5,6 +5,12 @@ server:
   # Set to "framework" ONLY when running behind a trusted reverse proxy, so client IPs (used by rate limiting) are read
   # from X-Forwarded-For. Leave as "none" otherwise: the header is spoofable when clients connect directly.
   forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+  ssl:
+    # Terminate TLS in the app itself (or leave off and terminate at a reverse proxy / load balancer)
+    enabled: ${SSL_ENABLED:false}
+    key-store: ${SSL_KEY_STORE:}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD:}
+    key-store-type: ${SSL_KEY_STORE_TYPE:PKCS12}
 
 springdoc:
   # interactive API docs at /swagger-ui.html and the raw spec at /v3/api-docs; set SWAGGER_ENABLED=false in production
@@ -42,10 +48,25 @@ app:
   jwt:
     # REQUIRED, no default: the app refuses to start without it (min 32 characters).
     secret: ${JWT_SECRET:}
-    expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+    # Access tokens are short-lived on purpose; the refresh cookie keeps people signed in.
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:15}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
+  security:
+    # true = redirect/refuse plain http (set it in production; also set FORWARD_HEADERS_STRATEGY=framework behind a proxy)
+    require-https: ${REQUIRE_HTTPS:false}
+    # REQUIRED, no default: 32 random bytes as base64 (openssl rand -base64 32). Encrypts sensitive columns.
+    data-encryption-key: ${DATA_ENCRYPTION_KEY:}
+    # Optional, only during key rotation: the previous key, so old rows stay readable
+    data-encryption-key-previous: ${DATA_ENCRYPTION_KEY_PREVIOUS:}
   auth:
+    refresh-token-days: ${REFRESH_TOKEN_DAYS:14}
+    # a refresh token reused within this many seconds is treated as a second browser tab, not theft
+    refresh-reuse-grace-seconds: ${REFRESH_REUSE_GRACE_SECONDS:10}
+    cookie:
+      # Secure = HTTPS only. Set COOKIE_SECURE=false ONLY for local http development.
+      secure: ${COOKIE_SECURE:true}
+      same-site: ${COOKIE_SAMESITE:Strict}
     rate-limit:
       # failed logins per (account, IP) before that pair is locked
       max-failed-logins: ${AUTH_MAX_FAILED_LOGINS:5}

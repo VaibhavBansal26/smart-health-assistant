@@ -1,5 +1,6 @@
 package com.healthcare.app.appointment;
 
+import com.healthcare.app.crypto.EncryptedStringConverter;
 import com.healthcare.app.user.User;
 import jakarta.persistence.*;
 
@@ -24,7 +25,9 @@ public class Appointment {
     @Column(nullable = false)
     private LocalDateTime dateTime;
 
-    @Column(nullable = false, length = 500)
+    /** Free text about the person's health, so it is stored encrypted (ciphertext is longer than the 500-char input limit). */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, length = 2000)
     private String reason;
 
     @Enumerated(EnumType.STRING)

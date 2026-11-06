@@ -7,7 +7,14 @@ spring:
       ddl-auto: create-drop
 
 app:
+  security:
+    # test-only key (never used outside tests)
+    data-encryption-key: dGVzdC1vbmx5LWtleS1kby1ub3QtdXNlLWluLXByb2Q=
   auth:
+    # 0 = any reuse of a rotated refresh token counts as theft; the grace-window tests raise it themselves
+    refresh-reuse-grace-seconds: 0
+    cookie:
+      secure: true
     rate-limit:
       # tests share one client IP and make hundreds of calls; the dedicated IP-limit test lowers this itself
       ip-max-requests: 100000

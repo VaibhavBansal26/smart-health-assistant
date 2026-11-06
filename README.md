@@ -9,10 +9,13 @@ Educational project, not a medical device: nothing here is a diagnosis.
 Needs **JDK 21**, **Node 22.12+/24**, and **Python 3.11+**.
 
 ```bash
-# 0. configuration (once): create your .env and set at least JWT_SECRET
+# 0. configuration (once): create your .env with the two required secrets
 cp .env.example .env
-echo "JWT_SECRET=$(openssl rand -base64 48)" >> .env   # or edit the file by hand
+{ echo "JWT_SECRET=$(openssl rand -base64 48)"
+  echo "DATA_ENCRYPTION_KEY=$(openssl rand -base64 32)"
+  echo "COOKIE_SECURE=false"; } >> .env   # false ONLY because local dev runs on plain http
 # optional, for local demo doctors: SEED_DEMO_DATA=true and DEMO_DOCTOR_PASSWORD=<your own password>
+# Back up DATA_ENCRYPTION_KEY: without it the encrypted data cannot be read.
 
 # 1. ML service -> http://localhost:8000   (first time: create the venv and train the models)
 cd ml-service
@@ -41,6 +44,15 @@ environment variables or from `.env` (see [`.env.example`](.env.example) for the
 | Variable | Purpose | Default |
 |---|---|---|
 | `JWT_SECRET` | **Required.** Signs login tokens, 32+ characters. The app refuses to start without it | none |
+| `DATA_ENCRYPTION_KEY` | **Required.** 32 random bytes as base64; encrypts sensitive columns. Refuses to start without it | none |
+| `DATA_ENCRYPTION_KEY_PREVIOUS` | Old key, only while rotating | empty |
+| `JWT_EXPIRATION_MINUTES` | Access-token lifetime | `15` |
+| `REFRESH_TOKEN_DAYS`, `REFRESH_REUSE_GRACE_SECONDS` | Session length; multi-tab grace window | `14`, `10` |
+| `COOKIE_SECURE`, `COOKIE_SAMESITE` | Refresh-cookie flags (`false` only for plain-http dev) | `true`, `Strict` |
+| `REQUIRE_HTTPS` | Redirect plain http to https | `false` (set `true` in production) |
+| `SSL_ENABLED`, `SSL_KEY_STORE`, `SSL_KEY_STORE_PASSWORD` | Serve HTTPS from the app itself (see `scripts/dev-cert.sh`) | off |
+| `FORWARD_HEADERS_STRATEGY` | `framework` ONLY behind a trusted reverse proxy | `none` |
+| `AUTH_MAX_FAILED_LOGINS`, `AUTH_MAX_FAILED_LOGINS_PER_ACCOUNT`, `AUTH_LOCKOUT_MINUTES`, `AUTH_IP_MAX_REQUESTS`, `AUTH_IP_WINDOW_MINUTES` | Brute-force limits | `5`, `20`, `15`, `60`, `15` |
 | `CORS_ORIGINS` | Browser origins allowed to call the API | `http://localhost:4200` |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Database | local H2 file |
 | `ML_SERVICE_URL` | Python ML service | `http://localhost:8000` |
@@ -48,7 +60,7 @@ environment variables or from `.env` (see [`.env.example`](.env.example) for the
 | `CHAT_PROVIDER`, `CHAT_MODEL`, `CHAT_EFFORT` | Chat provider, model, speed/quality | `auto`, `claude-opus-5-5`, `low` |
 | `SWAGGER_ENABLED` | Serve interactive API docs | `true` (set `false` in production) |
 | `SEED_DEMO_DATA`, `DEMO_DOCTOR_PASSWORD` | Create demo doctors (development only) | off, none |
-| `SERVER_PORT`, `JWT_EXPIRATION_MINUTES` | Port, token lifetime | `8080`, `60` |
+| `SERVER_PORT` | Port | `8080` |
 
 ML service (Python): `MODEL_PATH`, `RISK_MODEL_PATH`, `RISK_META_PATH` (file locations; defaults next to the code).
 
@@ -58,6 +70,23 @@ there, or generate that file from an environment variable in your deployment. Ne
 
 The app works without the ML service except "Find a doctor", which shows a
 "service unavailable" message with a retry button.
+
+## Security
+
+| Area | What is done |
+|---|---|
+| **Sessions** | A short-lived (15 min) access token held **in browser memory only**, plus a long-lived refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie scoped to `/api/auth`. Nothing sensitive is in `localStorage`, so XSS cannot steal a login |
+| **Refresh tokens** | Stored server-side only as a SHA-256 hash; **rotated on every use**; replaying an old token (stolen cookie) revokes the whole session family; a 10 s grace window stops two open tabs from triggering that falsely; `/api/auth/logout` revokes the session. The frontend refreshes silently on a 401 and shares one refresh between simultaneous requests |
+| **CSRF** | Access token is a header (not ambient); the cookie endpoints also require `X-Requested-With` and are `SameSite=Strict` |
+| **Login brute force** | Failures counted per (account, IP): 5 locks that pair for 15 min, so an attacker cannot lock the real owner out; 20 per account across all IPs stops botnets; per-IP request budget; unknown emails behave identically (no account enumeration); `429` + `Retry-After` |
+| **Double-booking** | A unique database constraint on a `slot_key` that is only set while an appointment is BOOKED, so even simultaneous requests cannot book the same slot. Legacy rows are backfilled at startup |
+| **Encryption at rest** | Appointment reasons and risk-check measurements are encrypted with AES-256-GCM (random nonce, tamper-detecting, key-id for rotation). Derived scores and levels stay in the clear so they can be sorted and filtered. This protects against a stolen database or backup, not against a compromised running server. Also encrypt the disk/database itself in production (e.g. managed PostgreSQL) |
+| **HTTPS** | Run behind a TLS-terminating proxy (set `REQUIRE_HTTPS=true`, `FORWARD_HEADERS_STRATEGY=framework`) or serve TLS directly (`SSL_*`, `scripts/dev-cert.sh` makes a local certificate). HSTS is sent over HTTPS |
+| **Headers** | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a locked-down `Content-Security-Policy` for the API, `Permissions-Policy`, `Cache-Control: no-store`; CORS allows only configured origins |
+
+**Breaking change for existing databases:** the encrypted columns replace plaintext ones
+(`risk_assessments` and `appointments.reason`), and new tables/columns appear. There is no migration tool yet
+(Flyway is on the to-do list), so delete `backend/data/` once when upgrading a local development database.
 
 ## Diabetes risk check
 
