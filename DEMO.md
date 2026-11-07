@@ -2,23 +2,26 @@
 
 ## Watch the video
 
-**[docs/demo/demo.mp4](docs/demo/demo.mp4)** (about 4.5 minutes, with voiceover and captions): admin, patient and doctor
+**[docs/demo/demo.mp4](docs/demo/demo.mp4)** (about 4.5 minutes, with voiceover, background music and captions): admin, patient and doctor
 journeys, the ML features, security, and a tech-stack outro. It is recorded from the live app by
 [`scripts/demo/record.mjs`](scripts/demo/record.mjs); the narration is spoken with ElevenLabs text-to-speech
 from the lines in [`scripts/demo/narration.json`](scripts/demo/narration.json).
 
-> The recording uses the chat's scripted **demo mode** (clearly labelled in the UI). With a valid `ANTHROPIC_API_KEY`
-> the same screen gives real Claude replies.
+> The chat in the video and screenshots is **real Claude** (`ANTHROPIC_API_KEY` set). Without a key the app falls back to a
+> clearly labelled scripted demo mode.
 
 ### Re-record it
 
 ```bash
 # 1. Run the three servers (see README). Use a fresh database, MAIL_MODE=log, SEED_DEMO_DATA=true,
-#    ADMIN_EMAIL / ADMIN_PASSWORD set, and CHAT_PROVIDER=mock for the scripted chat.
+#    ADMIN_EMAIL / ADMIN_PASSWORD set, and ANTHROPIC_API_KEY (or CHAT_PROVIDER=mock for the scripted chat).
 cd scripts/demo && npm install
 
 # 2. Voiceover: needs ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID (environment or the git-ignored .env at the repo root)
 node narration.mjs                      # writes .audio/*.mp3 and their durations (git-ignored)
+
+#    Optional EDM backing track (synthesised, original; ducks under the voice automatically):
+../../ml-service/.venv/bin/python music.py   # writes .audio/music.wav; MUSIC_VOLUME=0 for no music, higher for louder
 
 # 3. Record the app (each scene waits for its narration line), then mix the audio onto it
 VIDEO=1 BACKEND_LOG=/tmp/backend.log ADMIN_PASSWORD=<...> node record.mjs
@@ -62,7 +65,7 @@ Results are encrypted at rest and can be deleted.
 ![history](docs/demo/risk-history.png)
 
 ### 5. Chat with Aria
-Streaming replies over Server-Sent Events, a stop button, retry on error, and an emergency override.
+Streaming replies from Claude over Server-Sent Events, a stop button, retry on error, and an emergency override.
 
 ![chat](docs/demo/chat-reply.png)
 ![chat emergency](docs/demo/chat-emergency.png)

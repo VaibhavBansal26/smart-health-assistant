@@ -1,5 +1,5 @@
 // Lays each narration clip at its recorded start time on top of the raw screen recording -> docs/demo/demo.mp4
-import { readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,10 +23,27 @@ timeline.forEach((t, i) => {
   const ms = Math.max(0, Math.round(t.startMs * SCALE + OFFSET_MS));
   filters.push(`[${i + 1}:a]adelay=${ms}|${ms}[a${i}]`);
 });
+// Voice track: all narration clips at their start times
 filters.push(`${timeline.map((_, i) => `[a${i}]`).join('')}amix=inputs=${timeline.length}:normalize=0[voice]`);
+
+// Optional background music (run music.py first): looped, faded in/out, and ducked whenever the narrator speaks
+const musicFile = join(here, '.audio', 'music.wav');
+const MUSIC_VOLUME = Number(process.env.MUSIC_VOLUME ?? 0.35); // 1.0 = as synthesised; lower is quieter
+const videoSec = videoMs / 1000;
+let voiceLabel = '[voice]';
+if (existsSync(musicFile) && MUSIC_VOLUME > 0) {
+  inputs.push('-stream_loop', '-1', '-i', musicFile);
+  const mi = timeline.length + 1;
+  filters.push('[voice]asplit=2[vkey][vmix]');
+  filters.push(`[${mi}:a]atrim=0:${videoSec},asetpts=PTS-STARTPTS,volume=${MUSIC_VOLUME},afade=t=in:d=2,afade=t=out:st=${Math.max(0, videoSec - 4)}:d=4[music]`);
+  // sidechain: the voice (key) pushes the music down by ~14 dB while it is talking, and it swells back in the pauses
+  filters.push('[music][vkey]sidechaincompress=threshold=0.02:ratio=4:attack=25:release=500:makeup=1[musicducked]');
+  filters.push('[vmix][musicducked]amix=inputs=2:normalize=0:duration=longest[final]');
+  voiceLabel = '[final]';
+}
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...inputs, '-filter_complex', filters.join(';'),
-  '-map', '0:v', '-map', '[voice]', '-c:v', 'copy',
-  '-c:a', 'aac', '-b:a', '128k', '-t', execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', fixed]).toString().trim(),
+  '-map', '0:v', '-map', voiceLabel, '-c:v', 'copy',
+  '-c:a', 'aac', '-b:a', '160k', '-t', String(videoSec),
   '-movflags', '+faststart', join(out, 'demo.mp4')]);
 rmSync(join(out, 'demo-raw.mp4'));
 rmSync(fixed);

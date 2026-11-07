@@ -99,6 +99,17 @@ async function waitFor(fn, what, ms = 20000) {
   while (Date.now() - t0 < ms) { try { if (await page.evaluate(fn)) return; } catch {} await sleep(300); }
   throw new Error(`Timed out waiting for ${what}`);
 }
+/** Waits until the chat reply has finished streaming (text stops changing and the typing dots are gone). */
+async function waitChatDone(maxMs = 60000) {
+  let last = -1, stableSince = Date.now();
+  const t0 = Date.now();
+  while (Date.now() - t0 < maxMs) {
+    const len = await page.evaluate(() => (document.querySelector('[role=log]')?.innerText ?? '').length + (document.querySelector('.typing') ? 1e6 : 0));
+    if (len !== last) { last = len; stableSince = Date.now(); }
+    else if (Date.now() - stableSince > 2500 && last < 1e6 && last > 80) return;
+    await sleep(400);
+  }
+}
 async function signIn(email, password) {
   await go('/login');
   await type('#email', email); await type('#password', password);
@@ -181,7 +192,7 @@ try {
   await go('/chat'); await shot('chat-empty');
   await page.type('textarea', 'I have had a headache and feel dizzy since yesterday', { delay: VIDEO ? 45 : 0 });
   await page.keyboard.press('Enter');
-  await sleep(9000); await shot('chat-reply');
+  await waitChatDone(); await sleep(1500); await shot('chat-reply');
   await page.type('textarea', 'I am having severe chest pain and trouble breathing', { delay: VIDEO ? 45 : 0 });
   await page.keyboard.press('Enter'); await sleep(5000); await shot('chat-emergency');
 
